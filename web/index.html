@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>GoMailpit</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+        tr:hover { background-color: #f5f5f5; }
+    </style>
+</head>
+<body>
+    <h1>GoMailpit</h1>
+    <table id="emails-table">
+        <thead>
+            <tr>
+                <th>From</th>
+                <th>To</th>
+                <th>Subject</th>
+                <th>Date</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Emails will be populated here by JavaScript -->
+        </tbody>
+    </table>
+
+    <script>
+        async function loadEmails() {
+            try {
+                const response = await fetch('/api/messages?limit=50');
+                const emails = await response.json();
+                
+                const tbody = document.querySelector('#emails-table tbody');
+                tbody.innerHTML = ''; // Clear loading text
+                
+                emails.forEach(email => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${email.from}</td>
+                        <td>${email.to}</td>
+                        <td>${email.subject}</td>
+                        <td>${new Date(email.date).toLocaleString()}</td>
+                    `;
+                    // Make row clickable to view email details
+                    row.style.cursor = 'pointer';
+                    row.onclick = () => alert(`Body: ${email.text_body || email.html_body.substring(0, 100)}...`);
+                    tbody.appendChild(row);
+                });
+            } catch (error) {
+                console.error('Error loading emails:', error);
+            }
+        }
+        
+        // Load emails when page loads
+        document.addEventListener('DOMContentLoaded', loadEmails);
+    </script>
+</body>
+</html>
