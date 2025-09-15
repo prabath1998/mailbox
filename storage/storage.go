@@ -1,7 +1,7 @@
 package storage
 
 import (
-	"database/sql"
+	"database/sql"	
 	"time"
 	_ "modernc.org/sqlite"
 )
@@ -16,11 +16,9 @@ type Email struct {
 	Date      time.Time `json:"date"`
 	TextBody  string    `json:"text_body"`
 	HTMLBody  string    `json:"html_body"`
-	// For simplicity, we'll store attachments on disk and save paths or just skip for now
 }
 
 // Storage interface defines the methods our storage layer must implement.
-// This allows you to easily swap out SQLite for another database later.
 type Storage interface {
 	Init() error
 	SaveEmail(email *Email) error
@@ -67,11 +65,14 @@ func (s *SQLiteStorage) Init() error {
 
 // SaveEmail inserts a new email into the database
 func (s *SQLiteStorage) SaveEmail(email *Email) error {
+	// Convert time to RFC3339 format for consistent storage
+	dateStr := email.Date.Format(time.RFC3339)
+	
 	query := `
 	INSERT INTO emails (message_id, sender, recipient, subject, date, text_body, html_body)
 	VALUES (?, ?, ?, ?, ?, ?, ?)
 	`
-	_, err := s.db.Exec(query, email.MessageID, email.From, email.To, email.Subject, email.Date, email.TextBody, email.HTMLBody)
+	_, err := s.db.Exec(query, email.MessageID, email.From, email.To, email.Subject, dateStr, email.TextBody, email.HTMLBody)
 	return err
 }
 
@@ -92,10 +93,20 @@ func (s *SQLiteStorage) GetEmails(limit, offset int) ([]Email, error) {
 	var emails []Email
 	for rows.Next() {
 		var e Email
-		err := rows.Scan(&e.ID, &e.MessageID, &e.From, &e.To, &e.Subject, &e.Date, &e.TextBody, &e.HTMLBody)
+		var dateStr string // Scan the date as a string first
+		
+		err := rows.Scan(&e.ID, &e.MessageID, &e.From, &e.To, &e.Subject, &dateStr, &e.TextBody, &e.HTMLBody)
 		if err != nil {
 			return nil, err
 		}
+		
+		// Parse the date string back into time.Time
+		e.Date, err = time.Parse(time.RFC3339, dateStr)
+		if err != nil {
+			// If parsing fails, use the current time as fallback
+			e.Date = time.Now()
+		}
+		
 		emails = append(emails, e)
 	}
 	return emails, nil
@@ -109,11 +120,21 @@ func (s *SQLiteStorage) GetEmailByID(id string) (*Email, error) {
 	WHERE id = ?
 	`
 	row := s.db.QueryRow(query, id)
+	
 	var e Email
-	err := row.Scan(&e.ID, &e.MessageID, &e.From, &e.To, &e.Subject, &e.Date, &e.TextBody, &e.HTMLBody)
+	var dateStr string
+	
+	err := row.Scan(&e.ID, &e.MessageID, &e.From, &e.To, &e.Subject, &dateStr, &e.TextBody, &e.HTMLBody)
 	if err != nil {
 		return nil, err
 	}
+	
+	// Parse the date string back into time.Time
+	e.Date, err = time.Parse(time.RFC3339, dateStr)
+	if err != nil {
+		e.Date = time.Now()
+	}
+	
 	return &e, nil
 }
 
