@@ -8,16 +8,14 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/gorilla/mux" // Great HTTP router middleware
+	"github.com/gorilla/mux"
 )
 
-// Handler holds our API handler state
 type Handler struct {
 	Storage storage.Storage
 	Router  *mux.Router
 }
 
-// NewHandler creates a new API handler
 func NewHandler(storage storage.Storage) *Handler {
 	h := &Handler{Storage: storage}
 	h.Router = mux.NewRouter()
@@ -27,8 +25,7 @@ func NewHandler(storage storage.Storage) *Handler {
 
 func (h *Handler) setupRoutes() {
 	h.Router.HandleFunc("/api/messages", h.getEmails).Methods("GET")
-	h.Router.HandleFunc("/api/messages/{id}", h.getEmail).Methods("GET")
-	// Serve static files for the web UI
+	h.Router.HandleFunc("/api/messages/{id}", h.getEmail).Methods("GET")	
 	h.Router.PathPrefix("/").Handler(http.FileServer(http.Dir("./web/")))
 }
 
@@ -70,7 +67,6 @@ func (h *Handler) getEmail(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(email)
 }
 
-// Start the HTTP server
 func (h *Handler) Start(addr string) error {
 	log.Printf("HTTP server listening on %s", addr)
 	return http.ListenAndServe(addr, h.Router)

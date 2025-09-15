@@ -6,10 +6,9 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-// Email represents a captured email message
 type Email struct {
 	ID        string    `json:"id"`
-	MessageID string    `json:"message_id"` // The 'Message-ID' header
+	MessageID string    `json:"message_id"` 
 	From      string    `json:"from"`
 	To        string    `json:"to"`
 	Subject   string    `json:"subject"`
@@ -18,7 +17,6 @@ type Email struct {
 	HTMLBody  string    `json:"html_body"`
 }
 
-// Storage interface defines the methods our storage layer must implement.
 type Storage interface {
 	Init() error
 	SaveEmail(email *Email) error
@@ -27,12 +25,10 @@ type Storage interface {
 	Close() error
 }
 
-// SQLiteStorage implements the Storage interface
 type SQLiteStorage struct {
 	db *sql.DB
 }
 
-// NewSQLiteStorage creates a new SQLite storage connection
 func NewSQLiteStorage(dbPath string) (*SQLiteStorage, error) {
 	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
@@ -45,7 +41,6 @@ func NewSQLiteStorage(dbPath string) (*SQLiteStorage, error) {
 	return s, nil
 }
 
-// Init creates the necessary tables
 func (s *SQLiteStorage) Init() error {
 	query := `
 	CREATE TABLE IF NOT EXISTS emails (
@@ -63,9 +58,7 @@ func (s *SQLiteStorage) Init() error {
 	return err
 }
 
-// SaveEmail inserts a new email into the database
-func (s *SQLiteStorage) SaveEmail(email *Email) error {
-	// Convert time to RFC3339 format for consistent storage
+func (s *SQLiteStorage) SaveEmail(email *Email) error {	
 	dateStr := email.Date.Format(time.RFC3339)
 	
 	query := `
@@ -76,7 +69,6 @@ func (s *SQLiteStorage) SaveEmail(email *Email) error {
 	return err
 }
 
-// GetEmails retrieves a list of emails, most recent first
 func (s *SQLiteStorage) GetEmails(limit, offset int) ([]Email, error) {
 	query := `
 	SELECT id, message_id, sender, recipient, subject, date, text_body, html_body
@@ -93,17 +85,15 @@ func (s *SQLiteStorage) GetEmails(limit, offset int) ([]Email, error) {
 	var emails []Email
 	for rows.Next() {
 		var e Email
-		var dateStr string // Scan the date as a string first
+		var dateStr string
 		
 		err := rows.Scan(&e.ID, &e.MessageID, &e.From, &e.To, &e.Subject, &dateStr, &e.TextBody, &e.HTMLBody)
 		if err != nil {
 			return nil, err
-		}
+		}		
 		
-		// Parse the date string back into time.Time
 		e.Date, err = time.Parse(time.RFC3339, dateStr)
-		if err != nil {
-			// If parsing fails, use the current time as fallback
+		if err != nil {			
 			e.Date = time.Now()
 		}
 		
@@ -112,7 +102,6 @@ func (s *SQLiteStorage) GetEmails(limit, offset int) ([]Email, error) {
 	return emails, nil
 }
 
-// GetEmailByID retrieves a specific email by its database ID
 func (s *SQLiteStorage) GetEmailByID(id string) (*Email, error) {
 	query := `
 	SELECT id, message_id, sender, recipient, subject, date, text_body, html_body
@@ -127,9 +116,8 @@ func (s *SQLiteStorage) GetEmailByID(id string) (*Email, error) {
 	err := row.Scan(&e.ID, &e.MessageID, &e.From, &e.To, &e.Subject, &dateStr, &e.TextBody, &e.HTMLBody)
 	if err != nil {
 		return nil, err
-	}
+	}	
 	
-	// Parse the date string back into time.Time
 	e.Date, err = time.Parse(time.RFC3339, dateStr)
 	if err != nil {
 		e.Date = time.Now()

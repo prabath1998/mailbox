@@ -10,17 +10,15 @@ import (
 	"time"
 	"io" 
 
-	"github.com/emersion/go-message" // Powerful MIME parsing library
-	_ "github.com/emersion/go-message/charset" // Handle different character sets
+	"github.com/emersion/go-message" 
+	_ "github.com/emersion/go-message/charset" 
 )
 
-// SMTPServer holds our server state
 type SMTPServer struct {
 	Addr    string
 	Storage storage.Storage
 }
 
-// Start begins listening on the specified address
 func (s *SMTPServer) Start() error {
 	ln, err := net.Listen("tcp", s.Addr)
 	if err != nil {
@@ -36,15 +34,14 @@ func (s *SMTPServer) Start() error {
 			log.Printf("Error accepting connection: %v", err)
 			continue
 		}
-		// Handle each connection in a new goroutine
+		
 		go s.handleConnection(conn)
 	}
 }
 
-func (s *SMTPServer) handleConnection(conn net.Conn) {
-	defer conn.Close()
+func (s *SMTPServer) handleConnection(conn net.Conn) {	defer conn.Close()
 
-	// Send SMTP greeting
+	
 	conn.Write([]byte("220 localhost ESMTP Gomailpit\r\n"))
 
 	scanner := bufio.NewScanner(conn)
@@ -69,7 +66,7 @@ func (s *SMTPServer) handleConnection(conn net.Conn) {
 		case cmd == "DATA":
 			conn.Write([]byte("354 End data with <CR><LF>.<CR><LF>\r\n"))
 			isData = true
-			// Read the data until terminating "."
+			
 			for scanner.Scan() {
 				dataLine := scanner.Text()
 				if dataLine == "." {
@@ -77,7 +74,7 @@ func (s *SMTPServer) handleConnection(conn net.Conn) {
 				}
 				data += dataLine + "\r\n"
 			}
-			// Process the captured email data
+			
 			err := s.processEmail(from, to, data)
 			if err != nil {
 				log.Printf("Error processing email: %v", err)
@@ -85,7 +82,7 @@ func (s *SMTPServer) handleConnection(conn net.Conn) {
 			} else {
 				conn.Write([]byte("250 OK: Message received\r\n"))
 			}
-			// Reset for next message
+			
 			from, to, data = "", "", ""
 			isData = false
 		case cmd == "QUIT":
@@ -105,10 +102,8 @@ func (s *SMTPServer) handleConnection(conn net.Conn) {
 	}
 }
 
-// processEmail parses the raw MIME data and saves it to storage
-// processEmail parses the raw MIME data and saves it to storage
 func (s *SMTPServer) processEmail(from, to, data string) error {
-	// Create a message.Entity from the raw string
+	
 	entity, err := message.Read(strings.NewReader(data))
 	if err != nil {
 		return fmt.Errorf("could not parse MIME: %v", err)
@@ -117,34 +112,30 @@ func (s *SMTPServer) processEmail(from, to, data string) error {
 	email := &storage.Email{
 		From:      from,
 		To:        to,
-		Date:      time.Now(), // Use received time if Date header is missing/invalid
+		Date:      time.Now(),
 		Subject:   entity.Header.Get("Subject"),
 		MessageID: entity.Header.Get("Message-ID"),
 	}
-
-	// Try to parse the date from the header
+	
 	if dateHeader := entity.Header.Get("Date"); dateHeader != "" {
 		if parsedDate, err := time.Parse(time.RFC1123Z, dateHeader); err == nil {
 			email.Date = parsedDate
 		} else if parsedDate, err := time.Parse(time.RFC1123, dateHeader); err == nil {
 			email.Date = parsedDate
-		}
-		// Add more date formats if needed
+		}		
 	}
-
-	// Walk through the MIME parts to find text/plain and text/html
-	if mr := entity.MultipartReader(); mr != nil {
-		// This is a multi-part message
+	
+	if mr := entity.MultipartReader(); mr != nil {		
 		for {
 			part, err := mr.NextPart()
 			if err != nil {
-				break // No more parts
+				break 
 			}
 
 			contentType := part.Header.Get("Content-Type")
 			bodyBytes, err := io.ReadAll(part.Body)
 			if err != nil {
-				continue // Skip this part if we can't read it
+				continue 
 			}
 			body := string(bodyBytes)
 
@@ -153,11 +144,10 @@ func (s *SMTPServer) processEmail(from, to, data string) error {
 				email.TextBody = body
 			case strings.HasPrefix(contentType, "text/html"):
 				email.HTMLBody = body
-			}
-			// Note: You might want to handle attachments here later
+			}			
 		}
 	} else {
-		// This is a simple message
+		
 		contentType := entity.Header.Get("Content-Type")
 		bodyBytes, err := io.ReadAll(entity.Body)
 		if err != nil {
@@ -171,7 +161,6 @@ func (s *SMTPServer) processEmail(from, to, data string) error {
 			email.TextBody = body
 		}
 	}
-
-	// Save the email to the database
+	
 	return s.Storage.SaveEmail(email)
 }
