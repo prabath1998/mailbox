@@ -11,59 +11,149 @@
             theme: {
                 extend: {
                     colors: {
-                        primary: '#3B82F6',
-                        secondary: '#6366F1',
-                        dark: '#1F2937',
-                        light: '#F9FAFB',
+                        primary: '#6366F1',
+                        secondary: '#8B5CF6',
+                        accent: '#10B981',
+                        dark: {
+                            50: '#18181B',
+                            100: '#27272A',
+                            200: '#3F3F46',
+                            300: '#52525B',
+                            400: '#71717A',
+                            500: '#A1A1AA',
+                        },
+                        glow: '#6366F1',
+                    },
+                    animation: {
+                        'glow': 'glow 2s ease-in-out infinite alternate',
+                        'float': 'float 3s ease-in-out infinite',
+                        'slide-up': 'slideUp 0.3s ease-out',
+                        'fade-in': 'fadeIn 0.5s ease-out',
+                    },
+                    backdropBlur: {
+                        xs: '2px',
                     }
                 }
             }
         }
     </script>
     <style>
+        @keyframes glow {
+            from { box-shadow: 0 0 5px #6366F1, 0 0 10px #6366F1, 0 0 15px #6366F1; }
+            to { box-shadow: 0 0 10px #6366F1, 0 0 20px #6366F1, 0 0 30px #6366F1; }
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-5px); }
+        }
+        
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .email-row {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border-left: 3px solid transparent;
+        }
+        
         .email-row:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            transform: translateX(8px);
+            border-left-color: #6366F1;
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(139, 92, 246, 0.05));
         }
-        .badge {
-            display: inline-block;
-            padding: 0.15rem 0.5rem;
-            border-radius: 9999px;
-            font-size: 0.75rem;
-            font-weight: 600;
+        
+        .glass-effect {
+            background: rgba(39, 39, 42, 0.8);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
         }
+        
+        .gradient-bg {
+            background: linear-gradient(135deg, #18181B 0%, #27272A 50%, #3F3F46 100%);
+        }
+        
         .loading-spinner {
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #3B82F6;
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(99, 102, 241, 0.3);
             border-radius: 50%;
-            width: 30px;
-            height: 30px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto;
+            border-top-color: #6366F1;
+            animation: spin 1s ease-in-out infinite;
         }
+        
         @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            to { transform: rotate(360deg); }
+        }
+        
+        .neon-text {
+            text-shadow: 0 0 10px rgba(99, 102, 241, 0.5);
+        }
+        
+        .hover-scale {
+            transition: transform 0.2s ease;
+        }
+        
+        .hover-scale:hover {
+            transform: scale(1.05);
+        }
+        
+        .search-glow:focus {
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1), 0 0 20px rgba(99, 102, 241, 0.2);
+        }
+        
+        .modal-backdrop {
+            backdrop-filter: blur(12px);
+            background: rgba(0, 0, 0, 0.7);
+        }
+        
+        scrollbar-width: thin;
+        scrollbar-color: #6366F1 #27272A;
+        
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #27272A;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #6366F1;
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: #8B5CF6;
         }
     </style>
 </head>
-<body class="bg-gray-50 min-h-screen">   
-    <header class="bg-white shadow-sm">
+<body class="gradient-bg min-h-screen text-white">   
+    <header class="glass-effect sticky top-0 z-40">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center py-4">
                 <div class="flex items-center">
-                    <div class="bg-primary p-2 rounded-lg">
+                    <div class="bg-gradient-to-r from-primary to-secondary p-3 rounded-xl hover-scale animate-float">
                         <i class="fas fa-inbox text-white text-2xl"></i>
                     </div>
-                    <h1 class="ml-3 text-2xl font-bold text-gray-900">MailBox</h1>
-                    <span class="ml-3 bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded">v1.0</span>
+                    <h1 class="ml-4 text-3xl font-bold neon-text">MailBox</h1>
+                    <span class="ml-3 bg-gradient-to-r from-accent to-emerald-400 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">
+                        v2.0 BETA
+                    </span>
                 </div>
-                <div class="flex items-center">
+                <div class="flex items-center space-x-4">
                     <div class="relative">
-                        <input type="text" placeholder="Search emails..." class="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary">
-                        <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
+                        <input type="text" placeholder="Search emails..." 
+                               class="pl-12 pr-4 py-3 bg-dark-100 border border-dark-300 rounded-xl text-white placeholder-dark-400 focus:ring-2 focus:ring-primary focus:border-primary search-glow transition-all duration-300 w-64">
+                        <i class="fas fa-search absolute left-4 top-4 text-dark-400"></i>
                     </div>
-                    <button class="ml-4 bg-primary hover:bg-secondary text-white px-4 py-2 rounded-lg flex items-center">
+                    <button class="bg-gradient-to-r from-primary to-secondary hover:from-secondary hover:to-primary text-white px-6 py-3 rounded-xl flex items-center hover-scale transition-all duration-300 shadow-lg">
                         <i class="fas fa-sync-alt mr-2"></i> Refresh
                     </button>
                 </div>
@@ -72,79 +162,89 @@
     </header>
    
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div class="bg-white rounded-xl shadow overflow-hidden">           
-            <div class="border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-                <div class="flex items-center">
+        <div class="glass-effect rounded-2xl shadow-2xl overflow-hidden animate-fade-in">           
+            <div class="border-b border-dark-300 px-6 py-5 flex items-center justify-between bg-gradient-to-r from-dark-100 to-dark-200">
+                <div class="flex items-center space-x-4">
                     <div class="relative">
-                        <select class="appearance-none bg-gray-100 border-0 text-gray-700 py-2 pl-8 pr-10 rounded-lg leading-tight focus:outline-none focus:ring-2 focus:ring-primary">
+                        <select class="appearance-none bg-dark-200 border border-dark-300 text-white py-3 pl-10 pr-12 rounded-xl leading-tight focus:outline-none focus:ring-2 focus:ring-primary transition-all duration-300">
                             <option>All emails</option>
                             <option>Unread</option>
                             <option>Starred</option>
                         </select>
-                        <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center px-2 text-gray-700">
+                        <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center px-3 text-primary">
                             <i class="fas fa-filter"></i>
                         </div>
+                        <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-dark-400">
+                            <i class="fas fa-chevron-down"></i>
+                        </div>
                     </div>
-                    <button class="ml-4 text-gray-500 hover:text-gray-700">
-                        <i class="fas fa-archive"></i>
-                    </button>
-                    <button class="ml-2 text-gray-500 hover:text-gray-700">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                    <button class="ml-2 text-gray-500 hover:text-gray-700">
-                        <i class="fas fa-envelope"></i>
-                    </button>
+                    <div class="flex space-x-2">
+                        <button class="p-3 rounded-xl text-dark-400 hover:text-white hover:bg-dark-200 transition-all duration-300 hover-scale">
+                            <i class="fas fa-archive"></i>
+                        </button>
+                        <button class="p-3 rounded-xl text-dark-400 hover:text-red-400 hover:bg-dark-200 transition-all duration-300 hover-scale">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                        <button class="p-3 rounded-xl text-dark-400 hover:text-blue-400 hover:bg-dark-200 transition-all duration-300 hover-scale">
+                            <i class="fas fa-envelope"></i>
+                        </button>
+                    </div>
                 </div>
-                <div class="flex items-center">
-                    <span class="text-sm text-gray-500 mr-4">1-10 of 42</span>
-                    <button class="text-gray-400 hover:text-gray-600">
-                        <i class="fas fa-chevron-left"></i>
-                    </button>
-                    <button class="ml-2 text-gray-400 hover:text-gray-600">
-                        <i class="fas fa-chevron-right"></i>
-                    </button>
+                <div class="flex items-center space-x-4">
+                    <span class="text-sm text-dark-400 font-medium">1-10 of 42</span>
+                    <div class="flex space-x-2">
+                        <button class="p-2 rounded-lg text-dark-400 hover:text-white hover:bg-dark-200 transition-all duration-300">
+                            <i class="fas fa-chevron-left"></i>
+                        </button>
+                        <button class="p-2 rounded-lg text-dark-400 hover:text-white hover:bg-dark-200 transition-all duration-300">
+                            <i class="fas fa-chevron-right"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
            
-            <div class="divide-y divide-gray-200" id="emails-container">
-                <div class="px-6 py-8 flex justify-center">
+            <div class="divide-y divide-dark-300" id="emails-container">
+                <div class="px-6 py-12 flex justify-center">
                     <div class="loading-spinner"></div>
                 </div>
             </div>
         </div>
     </main>
    
-    <div id="email-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center hidden">
-        <div class="bg-white rounded-lg shadow-xl w-11/12 md:w-3/4 lg:w-2/3 max-h-screen overflow-y-auto">
-            <div class="px-6 py-4 border-b flex justify-between items-center">
-                <h3 class="text-xl font-semibold text-gray-900" id="modal-subject">Email Subject</h3>
-                <button id="close-modal" class="text-gray-400 hover:text-gray-600">
-                    <i class="fas fa-times"></i>
+    <div id="email-modal" class="fixed inset-0 modal-backdrop flex items-center justify-center hidden z-50">
+        <div class="glass-effect rounded-2xl shadow-2xl w-11/12 md:w-3/4 lg:w-2/3 max-h-screen overflow-y-auto animate-slide-up border border-dark-300">
+            <div class="px-6 py-5 border-b border-dark-300 flex justify-between items-center bg-gradient-to-r from-dark-100 to-dark-200">
+                <h3 class="text-2xl font-bold text-white" id="modal-subject">Email Subject</h3>
+                <button id="close-modal" class="p-2 rounded-xl text-dark-400 hover:text-white hover:bg-dark-200 transition-all duration-300 hover-scale">
+                    <i class="fas fa-times text-xl"></i>
                 </button>
             </div>
-            <div class="px-6 py-4">
-                <div class="flex justify-between items-start mb-6">
-                    <div>
-                        <div class="flex items-center">
-                            <span class="font-medium text-gray-900" id="modal-from">sender@example.com</span>
-                            <span class="mx-2 text-gray-400">to</span>
-                            <span class="text-gray-700" id="modal-to">recipient@example.com</span>
+            <div class="px-6 py-6">
+                <div class="flex justify-between items-start mb-8">
+                    <div class="space-y-2">
+                        <div class="flex items-center space-x-3">
+                            <span class="font-semibold text-white" id="modal-from">sender@example.com</span>
+                            <span class="text-dark-400">→</span>
+                            <span class="text-dark-500" id="modal-to">recipient@example.com</span>
                         </div>
-                        <div class="text-sm text-gray-500 mt-1" id="modal-date">June 12, 2023 at 10:30 AM</div>
+                        <div class="text-sm text-dark-400 flex items-center space-x-2">
+                            <i class="fas fa-clock"></i>
+                            <span id="modal-date">June 12, 2023 at 10:30 AM</span>
+                        </div>
                     </div>
                     <div class="flex space-x-2">
-                        <button class="p-2 rounded-full hover:bg-gray-100 text-gray-500">
+                        <button class="p-3 rounded-xl hover:bg-dark-200 text-dark-400 hover:text-blue-400 transition-all duration-300 hover-scale">
                             <i class="fas fa-reply"></i>
                         </button>
-                        <button class="p-2 rounded-full hover:bg-gray-100 text-gray-500">
+                        <button class="p-3 rounded-xl hover:bg-dark-200 text-dark-400 hover:text-green-400 transition-all duration-300 hover-scale">
                             <i class="fas fa-share"></i>
                         </button>
-                        <button class="p-2 rounded-full hover:bg-gray-100 text-gray-500">
+                        <button class="p-3 rounded-xl hover:bg-dark-200 text-dark-400 hover:text-red-400 transition-all duration-300 hover-scale">
                             <i class="fas fa-trash"></i>
                         </button>
                     </div>
                 </div>
-                <div class="prose max-w-none border-t pt-6" id="modal-body">
+                <div class="border-t border-dark-300 pt-6" id="modal-body">
                    
                 </div>
             </div>
@@ -180,8 +280,8 @@
             
             const bodyContent = email.text_body || email.html_body || 'No content available';
             modalBody.innerHTML = bodyContent.length > 300 ? 
-                `<div class="bg-gray-50 p-4 rounded-lg"><pre class="whitespace-pre-wrap">${bodyContent}</pre></div>` :
-                `<p>${bodyContent}</p>`;
+                `<div class="bg-dark-200 p-6 rounded-xl border border-dark-300"><pre class="whitespace-pre-wrap text-dark-500 text-sm leading-relaxed">${bodyContent}</pre></div>` :
+                `<p class="text-dark-500 leading-relaxed">${bodyContent}</p>`;
             
             emailModal.classList.remove('hidden');
         }
@@ -199,7 +299,7 @@
         async function loadEmails() {
             try {               
                 emailsContainer.innerHTML = `
-                    <div class="px-6 py-8 flex justify-center">
+                    <div class="px-6 py-12 flex justify-center">
                         <div class="loading-spinner"></div>
                     </div>
                 `;
@@ -212,35 +312,38 @@
                 
                 if (emails.length === 0) {
                     emailsContainer.innerHTML = `
-                        <div class="px-6 py-12 text-center">
-                            <i class="fas fa-inbox text-4xl text-gray-300 mb-4"></i>
-                            <h3 class="text-lg font-medium text-gray-900 mb-1">No emails yet</h3>
-                            <p class="text-gray-500">Emails sent to your application will appear here</p>
+                        <div class="px-6 py-16 text-center">
+                            <div class="w-20 h-20 bg-gradient-to-r from-primary to-secondary rounded-full flex items-center justify-center mx-auto mb-6 animate-float">
+                                <i class="fas fa-inbox text-3xl text-white"></i>
+                            </div>
+                            <h3 class="text-xl font-bold text-white mb-2">No emails yet</h3>
+                            <p class="text-dark-400">Emails sent to your application will appear here with style</p>
                         </div>
                     `;
                     return;
                 }                
                 
-                emails.forEach(email => {
+                emails.forEach((email, index) => {
                     const emailEl = document.createElement('div');
-                    emailEl.className = 'email-row px-6 py-4 flex items-center border-b border-gray-100 hover:bg-blue-50 cursor-pointer transition-all duration-200';
+                    emailEl.className = 'email-row px-6 py-5 flex items-center cursor-pointer transition-all duration-300';
+                    emailEl.style.animationDelay = `${index * 0.1}s`;
                     emailEl.innerHTML = `
-                        <div class="flex-shrink-0 mr-4">
-                            <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                                <i class="fas fa-user text-blue-600"></i>
+                        <div class="flex-shrink-0 mr-5">
+                            <div class="w-12 h-12 bg-gradient-to-r from-primary to-secondary rounded-xl flex items-center justify-center shadow-lg">
+                                <i class="fas fa-user text-white text-lg"></i>
                             </div>
                         </div>
-                        <div class="min-w-0 flex-1">
-                            <div class="flex items-center">
-                                <p class="text-sm font-medium text-gray-900 truncate mr-2">${email.from || 'Unknown'}</p>
-                                <span class="text-xs text-gray-500">${formatDate(email.date)}</span>
+                        <div class="min-w-0 flex-1 space-y-1">
+                            <div class="flex items-center justify-between">
+                                <p class="text-sm font-semibold text-white truncate mr-4">${email.from || 'Unknown'}</p>
+                                <span class="text-xs text-dark-400 font-medium whitespace-nowrap">${formatDate(email.date)}</span>
                             </div>
-                            <p class="text-sm font-medium text-gray-900 truncate mt-1">${email.subject || '(No subject)'}</p>
-                            <p class="text-sm text-gray-500 truncate mt-1">${email.text_body ? email.text_body.substring(0, 60) + '...' : 'No content preview'}</p>
+                            <p class="text-base font-bold text-white truncate">${email.subject || '(No subject)'}</p>
+                            <p class="text-sm text-dark-400 truncate">${email.text_body ? email.text_body.substring(0, 80) + '...' : 'No content preview'}</p>
                         </div>
-                        <div class="flex items-center space-x-2">
-                            ${email.html_body ? '<span class="badge bg-blue-100 text-blue-800">HTML</span>' : ''}
-                            <i class="fas fa-chevron-right text-gray-400"></i>
+                        <div class="flex items-center space-x-3 ml-4">
+                            ${email.html_body ? '<span class="bg-gradient-to-r from-blue-500 to-blue-600 text-white text-xs font-bold px-2 py-1 rounded-lg">HTML</span>' : ''}
+                            <i class="fas fa-chevron-right text-dark-400 group-hover:text-primary transition-colors"></i>
                         </div>
                     `;
                     
@@ -250,11 +353,13 @@
             } catch (error) {
                 console.error('Error loading emails:', error);
                 emailsContainer.innerHTML = `
-                    <div class="px-6 py-8 text-center">
-                        <i class="fas fa-exclamation-triangle text-4xl text-red-400 mb-4"></i>
-                        <h3 class="text-lg font-medium text-gray-900 mb-2">Failed to load emails</h3>
-                        <p class="text-gray-500 mb-4">Check your connection and try again</p>
-                        <button class="bg-primary hover:bg-secondary text-white px-4 py-2 rounded-lg">
+                    <div class="px-6 py-12 text-center">
+                        <div class="w-16 h-16 bg-gradient-to-r from-red-500 to-red-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                            <i class="fas fa-exclamation-triangle text-2xl text-white"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-white mb-2">Failed to load emails</h3>
+                        <p class="text-dark-400 mb-6">Check your connection and try again</p>
+                        <button class="bg-gradient-to-r from-primary to-secondary hover:from-secondary hover:to-primary text-white px-6 py-3 rounded-xl hover-scale transition-all duration-300">
                             <i class="fas fa-refresh mr-2"></i>Retry
                         </button>
                     </div>
@@ -262,7 +367,16 @@
             }
         }        
       
-        document.addEventListener('DOMContentLoaded', loadEmails);
+        document.addEventListener('DOMContentLoaded', loadEmails);        
+      
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                document.querySelector(this.getAttribute('href')).scrollIntoView({
+                    behavior: 'smooth'
+                });
+            });
+        });
     </script>
 </body>
 </html>
