@@ -1,166 +1,100 @@
 package smtp
 
 import (
-	"bufio"
-	"fmt"
-	"mailbox/storage"
+	"errors"
+	"io"
 	"log"
-	"net"
-	"strings"
 	"time"
-	"io" 
 
-	"github.com/emersion/go-message" 
-	_ "github.com/emersion/go-message/charset" 
+	"mailbox/events"
+	"mailbox/mailparse"
+	"mailbox/storage"
+
+	"github.com/emersion/go-sasl"
+	gosmtp "github.com/emersion/go-smtp"
 )
+
+const maxMessageBytes = 25 << 20
 
 type SMTPServer struct {
 	Addr    string
-	Storage storage.Storage
+	Storage *storage.SQLiteStorage
+	Events  *events.Hub
 }
 
 func (s *SMTPServer) Start() error {
-	ln, err := net.Listen("tcp", s.Addr)
+	srv := gosmtp.NewServer(gosmtp.BackendFunc(func(*gosmtp.Conn) (gosmtp.Session, error) {
+		return &session{srv: s}, nil
+	}))
+	srv.Addr = s.Addr
+	srv.Domain = "localhost"
+	srv.MaxMessageBytes = maxMessageBytes
+	srv.MaxRecipients = 500
+	srv.ReadTimeout = 2 * time.Minute
+	srv.WriteTimeout = 2 * time.Minute
+	// This is a dev sandbox: accept any credentials over plain text.
+	srv.AllowInsecureAuth = true
+
+	log.Printf("SMTP server listening on %s", s.Addr)
+	return srv.ListenAndServe()
+}
+
+type session struct {
+	srv  *SMTPServer
+	from string
+	to   []string
+}
+
+// Accept any username and password so apps configured with SMTP auth still work.
+func (s *session) AuthMechanisms() []string {
+	return []string{sasl.Plain, sasl.Login}
+}
+
+func (s *session) Auth(mech string) (sasl.Server, error) {
+	switch mech {
+	case sasl.Plain:
+		return sasl.NewPlainServer(func(_, _, _ string) error { return nil }), nil
+	case sasl.Login:
+		return sasl.NewLoginServer(func(_, _ string) error { return nil }), nil
+	}
+	return nil, gosmtp.ErrAuthUnsupported
+}
+
+func (s *session) Mail(from string, _ *gosmtp.MailOptions) error {
+	s.from = from
+	return nil
+}
+
+func (s *session) Rcpt(to string, _ *gosmtp.RcptOptions) error {
+	s.to = append(s.to, to)
+	return nil
+}
+
+func (s *session) Data(r io.Reader) error {
+	raw, err := io.ReadAll(r)
 	if err != nil {
 		return err
 	}
-	defer ln.Close()
-
-	log.Printf("SMTP server listening on %s", s.Addr)
-
-	for {
-		conn, err := ln.Accept()
-		if err != nil {
-			log.Printf("Error accepting connection: %v", err)
-			continue
-		}
-		
-		go s.handleConnection(conn)
-	}
-}
-
-func (s *SMTPServer) handleConnection(conn net.Conn) {	defer conn.Close()
-
-	
-	conn.Write([]byte("220 localhost ESMTP Gomailpit\r\n"))
-
-	scanner := bufio.NewScanner(conn)
-	var from, to, data string
-	isData := false
-
-	for scanner.Scan() {
-		line := scanner.Text()
-		cmd := strings.ToUpper(strings.TrimSpace(line))
-
-		switch {
-		case strings.HasPrefix(cmd, "HELO") || strings.HasPrefix(cmd, "EHLO"):
-			conn.Write([]byte("250 Hello\r\n"))
-		case strings.HasPrefix(cmd, "MAIL FROM:"):
-			from = strings.TrimPrefix(line, "MAIL FROM:")
-			from = strings.Trim(from, " :<>")
-			conn.Write([]byte("250 OK\r\n"))
-		case strings.HasPrefix(cmd, "RCPT TO:"):
-			to = strings.TrimPrefix(line, "RCPT TO:")
-			to = strings.Trim(to, " :<>")
-			conn.Write([]byte("250 OK\r\n"))
-		case cmd == "DATA":
-			conn.Write([]byte("354 End data with <CR><LF>.<CR><LF>\r\n"))
-			isData = true
-			
-			for scanner.Scan() {
-				dataLine := scanner.Text()
-				if dataLine == "." {
-					break
-				}
-				data += dataLine + "\r\n"
-			}
-			
-			err := s.processEmail(from, to, data)
-			if err != nil {
-				log.Printf("Error processing email: %v", err)
-				conn.Write([]byte("550 Error processing message\r\n"))
-			} else {
-				conn.Write([]byte("250 OK: Message received\r\n"))
-			}
-			
-			from, to, data = "", "", ""
-			isData = false
-		case cmd == "QUIT":
-			conn.Write([]byte("221 Bye\r\n"))
-			return
-		case cmd == "RSET":
-			from, to, data = "", "", ""
-			isData = false
-			conn.Write([]byte("250 OK\r\n"))
-		case cmd == "NOOP":
-			conn.Write([]byte("250 OK\r\n"))
-		default:
-			if !isData {
-				conn.Write([]byte("500 Command not recognized\r\n"))
-			}
-		}
-	}
-}
-
-func (s *SMTPServer) processEmail(from, to, data string) error {
-	
-	entity, err := message.Read(strings.NewReader(data))
+	msg, err := mailparse.Parse(raw, s.from, s.to)
 	if err != nil {
-		return fmt.Errorf("could not parse MIME: %v", err)
+		log.Printf("Error parsing message: %v", err)
+		return &gosmtp.SMTPError{Code: 554, EnhancedCode: gosmtp.EnhancedCode{5, 6, 0}, Message: "Could not parse message"}
 	}
-
-	email := &storage.Email{
-		From:      from,
-		To:        to,
-		Date:      time.Now(),
-		Subject:   entity.Header.Get("Subject"),
-		MessageID: entity.Header.Get("Message-ID"),
+	sum, err := s.srv.Storage.Save(msg)
+	if err != nil {
+		log.Printf("Error saving message: %v", err)
+		return errors.New("could not store message")
 	}
-	
-	if dateHeader := entity.Header.Get("Date"); dateHeader != "" {
-		if parsedDate, err := time.Parse(time.RFC1123Z, dateHeader); err == nil {
-			email.Date = parsedDate
-		} else if parsedDate, err := time.Parse(time.RFC1123, dateHeader); err == nil {
-			email.Date = parsedDate
-		}		
-	}
-	
-	if mr := entity.MultipartReader(); mr != nil {		
-		for {
-			part, err := mr.NextPart()
-			if err != nil {
-				break 
-			}
+	log.Printf("Received message %d from %s: %q", sum.ID, sum.From.Address, sum.Subject)
+	s.srv.Events.Publish(events.Event{Type: "new", IDs: []int64{sum.ID}, Payload: sum})
+	return nil
+}
 
-			contentType := part.Header.Get("Content-Type")
-			bodyBytes, err := io.ReadAll(part.Body)
-			if err != nil {
-				continue 
-			}
-			body := string(bodyBytes)
+func (s *session) Reset() {
+	s.from = ""
+	s.to = nil
+}
 
-			switch {
-			case strings.HasPrefix(contentType, "text/plain"):
-				email.TextBody = body
-			case strings.HasPrefix(contentType, "text/html"):
-				email.HTMLBody = body
-			}			
-		}
-	} else {
-		
-		contentType := entity.Header.Get("Content-Type")
-		bodyBytes, err := io.ReadAll(entity.Body)
-		if err != nil {
-			return fmt.Errorf("could not read email body: %v", err)
-		}
-		body := string(bodyBytes)
-
-		if strings.HasPrefix(contentType, "text/html") {
-			email.HTMLBody = body
-		} else {
-			email.TextBody = body
-		}
-	}
-	
-	return s.Storage.SaveEmail(email)
+func (s *session) Logout() error {
+	return nil
 }
