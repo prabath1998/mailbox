@@ -44,3 +44,11 @@ export function avatarHue(seed: string): number {
   for (const c of seed) h = (h * 31 + c.charCodeAt(0)) >>> 0;
   return hues[h % hues.length];
 }
+
+// Spread around the colour wheel so neighbouring tags are easy to tell apart.
+const tagHues = [8, 32, 50, 95, 150, 180, 205, 230, 265, 300, 330];
+export function tagHue(tag: string): number {
+  let h = 0;
+  for (const c of tag) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return tagHues[h % tagHues.length];
+}

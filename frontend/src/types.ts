@@ -18,6 +18,12 @@ export interface Summary {
   size: number;
   read: boolean;
   attachments: number;
+  tags: string[];
+}
+
+export interface TagCount {
+  name: string;
+  count: number;
 }
 
 export interface Attachment {

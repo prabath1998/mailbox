@@ -1,27 +1,39 @@
-import { AlertTriangle, ArrowLeft, Check, Copy, Download, FileText, MailOpen, Monitor, Smartphone, Trash2 } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Check, Contrast, Copy, Download, FileText, MailOpen, Monitor, Moon, Smartphone, Sun, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api";
 import { displayName, formatAddress, formatBytes, formatFullDate } from "../format";
+import { checkAccessibility, type A11yReport } from "../a11ycheck";
+import type { PreviewTheme } from "../emailDoc";
 import { checkHtml } from "../htmlcheck";
 import type { Address, Message, SpamReport } from "../types";
 import { Avatar } from "./Avatar";
-import { HtmlCheckPanel, LinkCheckPanel, SpamPanel, scoreTone } from "./CheckPanels";
+import { AccessibilityPanel, HtmlCheckPanel, LinkCheckPanel, SpamPanel, scoreTone } from "./CheckPanels";
 import { HtmlPreview } from "./HtmlPreview";
+import { TagChip } from "./TagChip";
 
-type Tab = "html" | "text" | "headers" | "raw" | "compat" | "links" | "spam";
+type Tab = "html" | "text" | "headers" | "raw" | "compat" | "a11y" | "links" | "spam";
 
 interface Props {
   id: number;
   onBack: () => void;
   onDelete: (id: number) => void;
   onMarkUnread: (id: number) => void;
+  onTag: (tag: string) => void;
 }
 
-export function MessageView({ id, onBack, onDelete, onMarkUnread }: Props) {
+const THEMES: SegmentedOption<PreviewTheme>[] = [
+  { id: "light", label: "Light", title: "Light mode", icon: Sun },
+  { id: "dark", label: "Dark", title: "Dark mode using the email's own dark styles, as in Apple Mail", icon: Moon },
+  { id: "invert", label: "Forced dark", title: "Colours inverted, as in the Gmail and Outlook apps", icon: Contrast },
+];
+
+export function MessageView({ id, onBack, onDelete, onMarkUnread, onTag }: Props) {
   const [message, setMessage] = useState<Message | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("html");
   const [width, setWidth] = useState<"desktop" | "mobile">("desktop");
+  const [theme, setTheme] = useState<PreviewTheme>("light");
+  const [a11y, setA11y] = useState<A11yReport | null>(null);
   const [spam, setSpam] = useState<SpamReport | null>(null);
   const [raw, setRaw] = useState<string | null>(null);
   const [rawError, setRawError] = useState<string | null>(null);
@@ -60,6 +72,20 @@ export function MessageView({ id, onBack, onDelete, onMarkUnread }: Props) {
   }, [tab, raw, id]);
 
   const compat = useMemo(() => (message?.html ? checkHtml(message.html) : null), [message?.html]);
+
+  // Rendering for the accessibility check takes a moment, so run it once per message
+  // in the background; the tab badge fills in when it's done.
+  useEffect(() => {
+    setA11y(null);
+    if (!message?.html) return;
+    let cancelled = false;
+    checkAccessibility(message.html)
+      .then((r) => !cancelled && setA11y(r))
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [message?.html]);
 
   const toolbar = (
     <div className="flex h-14 shrink-0 items-center gap-1 border-b border-line px-3 sm:px-6">
@@ -128,6 +154,12 @@ export function MessageView({ id, onBack, onDelete, onMarkUnread }: Props) {
       disabled: !compat,
       badge: compat ? { text: `${compat.score}%`, tone: scoreTone(compat.score >= 90, compat.score >= 70) } : undefined,
     },
+    {
+      id: "a11y",
+      label: "Accessibility",
+      disabled: !message.html,
+      badge: a11y ? { text: `${a11y.score}`, tone: scoreTone(a11y.score >= 90, a11y.score >= 70) } : undefined,
+    },
     { id: "links", label: "Links" },
     {
       id: "spam",
@@ -144,6 +176,13 @@ export function MessageView({ id, onBack, onDelete, onMarkUnread }: Props) {
       <div className="flex flex-1 flex-col overflow-y-auto">
         <header className="px-4 pt-6 pb-5 sm:px-10">
           <h1 className="text-[22px] leading-tight font-semibold tracking-[-0.01em] text-balance">{message.subject || "(no subject)"}</h1>
+          {message.tags.length > 0 && (
+            <div className="mt-2.5 flex flex-wrap gap-1.5" aria-label="Tags">
+              {message.tags.map((t) => (
+                <TagChip key={t} tag={t} onClick={onTag} />
+              ))}
+            </div>
+          )}
           <div className="mt-5 flex items-start gap-3">
             <Avatar name={displayName(message.from)} size="lg" />
             <div className="min-w-0 flex-1 text-[13px]">
@@ -191,38 +230,36 @@ export function MessageView({ id, onBack, onDelete, onMarkUnread }: Props) {
           )}
         </header>
 
-        <div className="sticky top-0 z-10 flex items-center gap-2 border-y border-line bg-surface/90 px-4 py-2 backdrop-blur sm:px-10">
-          <nav role="tablist" aria-label="Message views" className="flex min-w-0 items-center gap-1 overflow-x-auto">
+        <div className="sticky top-0 z-10 flex items-center gap-2 border-y border-line bg-surface/90 px-4 py-2 backdrop-blur sm:px-8">
+          <nav role="tablist" aria-label="Message views" className="flex min-w-0 items-center gap-0.5 overflow-x-auto">
             <TabGroup tabs={views} active={tab} onChange={setTab} />
-            <span className="mx-1.5 h-5 w-px shrink-0 bg-line" aria-hidden />
+            <span className="mx-1 h-5 w-px shrink-0 bg-line" aria-hidden />
             <TabGroup tabs={checks} active={tab} onChange={setTab} />
           </nav>
           <div className="ml-auto flex shrink-0 items-center gap-1">
-            {tab === "html" && (
-              <div role="radiogroup" aria-label="Preview width" className="flex rounded-lg bg-sunken p-0.5 max-sm:hidden">
-                {(["desktop", "mobile"] as const).map((w) => (
-                  <button
-                    key={w}
-                    role="radio"
-                    aria-checked={width === w}
-                    onClick={() => setWidth(w)}
-                    aria-label={w === "desktop" ? "Desktop width" : "Mobile width, 375 pixels"}
-                    title={w === "desktop" ? "Desktop width" : "Mobile width (375px)"}
-                    className={`flex size-7 items-center justify-center rounded-md transition-colors ${
-                      width === w ? "bg-raised text-ink shadow-sm" : "text-faint hover:text-ink"
-                    }`}
-                  >
-                    {w === "desktop" ? <Monitor className="size-3.5" /> : <Smartphone className="size-3.5" />}
-                  </button>
-                ))}
-              </div>
-            )}
             {copyValue && <CopyButton value={copyValue} />}
           </div>
         </div>
 
         <div role="tabpanel" className="flex-1 bg-paper px-4 py-6 sm:px-10 sm:py-8">
-          {tab === "html" && <HtmlPreview key={message.id} html={message.html} width={width} />}
+          {tab === "html" && (
+            <>
+              <div className="mx-auto mb-4 flex max-w-250 flex-wrap items-center justify-end gap-2">
+                <Segmented label="Preview colour scheme" value={theme} onChange={setTheme} options={THEMES} />
+                <Segmented
+                  label="Preview width"
+                  value={width}
+                  onChange={setWidth}
+                  className="max-sm:hidden"
+                  options={[
+                    { id: "desktop", label: "Desktop", title: "Desktop width", icon: Monitor },
+                    { id: "mobile", label: "Mobile", title: "Mobile width (375px)", icon: Smartphone },
+                  ]}
+                />
+              </div>
+              <HtmlPreview key={message.id} html={message.html} width={width} theme={theme} />
+            </>
+          )}
           {tab === "text" && (
             <pre className="panel mx-auto max-w-3xl p-6 font-sans text-sm leading-relaxed wrap-break-word whitespace-pre-wrap text-ink-2">
               {message.text}
@@ -250,6 +287,15 @@ export function MessageView({ id, onBack, onDelete, onMarkUnread }: Props) {
             </pre>
           )}
           {tab === "compat" && compat && <HtmlCheckPanel report={compat} />}
+          {tab === "a11y" && (
+            <AccessibilityPanel
+              report={a11y}
+              onPreviewDark={() => {
+                setTheme(a11y?.darkMode ? "dark" : "invert");
+                setTab("html");
+              }}
+            />
+          )}
           {tab === "links" && <LinkCheckPanel key={message.id} id={message.id} />}
           {tab === "spam" && <SpamPanel report={spam} />}
         </div>
@@ -273,7 +319,7 @@ function TabGroup({ tabs, active, onChange }: { tabs: TabDef[]; active: Tab; onC
       aria-selected={active === t.id}
       disabled={t.disabled}
       onClick={() => onChange(t.id)}
-      className={`flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-[13px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-35 ${
+      className={`flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2 text-[13px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-35 ${
         active === t.id ? "bg-ink text-surface" : "text-muted hover:bg-sunken hover:text-ink"
       }`}
     >
@@ -283,6 +329,47 @@ function TabGroup({ tabs, active, onChange }: { tabs: TabDef[]; active: Tab; onC
       )}
     </button>
   ));
+}
+
+interface SegmentedOption<T extends string> {
+  id: T;
+  label: string;
+  title: string;
+  icon: typeof Sun;
+}
+
+function Segmented<T extends string>({
+  label,
+  value,
+  onChange,
+  options,
+  className = "",
+}: {
+  label: string;
+  value: T;
+  onChange: (v: T) => void;
+  options: SegmentedOption<T>[];
+  className?: string;
+}) {
+  return (
+    <div role="radiogroup" aria-label={label} className={`flex rounded-lg border border-line bg-surface p-0.5 ${className}`}>
+      {options.map(({ id, label, title, icon: Icon }) => (
+        <button
+          key={id}
+          role="radio"
+          aria-checked={value === id}
+          onClick={() => onChange(id)}
+          title={title}
+          className={`flex h-7 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium transition-colors ${
+            value === id ? "bg-ink text-surface" : "text-muted hover:text-ink"
+          }`}
+        >
+          <Icon className="size-3.5" />
+          {label}
+        </button>
+      ))}
+    </div>
+  );
 }
 
 function Recipients({ label, list }: { label: string; list: Address[] }) {

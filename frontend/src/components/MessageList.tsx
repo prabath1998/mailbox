@@ -3,6 +3,7 @@ import { useEffect, useRef } from "react";
 import { displayName, formatListDate } from "../format";
 import type { Summary } from "../types";
 import { Avatar } from "./Avatar";
+import { TagChip } from "./TagChip";
 
 interface Props {
   messages: Summary[];
@@ -11,9 +12,10 @@ interface Props {
   fresh: Set<number>;
   onSelect: (id: number) => void;
   onToggle: (id: number) => void;
+  onTag: (tag: string) => void;
 }
 
-export function MessageList({ messages, selectedId, checked, fresh, onSelect, onToggle }: Props) {
+export function MessageList({ messages, selectedId, checked, fresh, onSelect, onToggle, onTag }: Props) {
   const selectedRef = useRef<HTMLLIElement>(null);
 
   useEffect(() => {
@@ -72,6 +74,14 @@ export function MessageList({ messages, selectedId, checked, fresh, onSelect, on
                 {m.attachments > 0 && <Paperclip className="size-3.5 shrink-0 text-faint" aria-label="Has attachments" />}
               </div>
               <p className="mt-0.5 line-clamp-1 text-xs text-faint">{m.snippet || "No text content"}</p>
+              {m.tags?.length > 0 && (
+                <div className="mt-1.5 flex gap-1 overflow-hidden">
+                  {m.tags.slice(0, 3).map((t) => (
+                    <TagChip key={t} tag={t} onClick={onTag} />
+                  ))}
+                  {m.tags.length > 3 && <span className="self-center text-[11px] text-faint">+{m.tags.length - 3}</span>}
+                </div>
+              )}
             </div>
           </li>
         );

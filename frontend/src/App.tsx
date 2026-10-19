@@ -11,7 +11,7 @@ import { ConnectCard, FOLDERS, LiveStatus, Sidebar, type Folder } from "./compon
 import { ThemeToggle } from "./components/ThemeToggle";
 import { Toasts, type Toast } from "./components/Toasts";
 import { displayName } from "./format";
-import type { InboxEvent, Page } from "./types";
+import type { InboxEvent, Page, TagCount } from "./types";
 
 const PAGE_SIZE = 50;
 
@@ -35,6 +35,7 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [connected, setConnected] = useState(false);
   const [smtp, setSmtp] = useState<string | null>(null);
+  const [tags, setTags] = useState<TagCount[]>([]);
   const [folder, setFolder] = useState<Folder>("all");
   const [input, setInput] = useState("");
   const [search, setSearch] = useState("");
@@ -53,7 +54,9 @@ export default function App() {
 
   const load = useCallback(async () => {
     try {
-      setPage(await api.list(query, PAGE_SIZE, offset));
+      const [list, tagList] = await Promise.all([api.list(query, PAGE_SIZE, offset), api.tags()]);
+      setPage(list);
+      setTags(tagList);
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't load messages");
@@ -104,6 +107,13 @@ export default function App() {
   const changeFolder = (f: Folder) => {
     setFolder(f);
     setOffset(0);
+    setChecked(new Set());
+  };
+
+  // Tags filter through the search box, so the filter stays visible and editable.
+  const showTag = (tag: string) => {
+    setFolder("all");
+    setInput(`tag:${tag}`);
     setChecked(new Set());
   };
 
@@ -290,6 +300,9 @@ export default function App() {
           notify={notify}
           onToggleNotify={toggleNotify}
           onShortcuts={() => setShowShortcuts(true)}
+          tags={tags}
+          activeTag={search.match(/^tag:(\S+)$/)?.[1] ?? null}
+          onTag={showTag}
         />
 
         <section
@@ -317,8 +330,8 @@ export default function App() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="Search mail"
-                aria-label="Search mail. Filters: from:, to:, subject:, is:unread, has:attachment"
-                title="Filters: from:, to:, subject:, is:unread, is:read, has:attachment"
+                aria-label="Search mail. Filters: from:, to:, subject:, tag:, is:unread, has:attachment"
+                title="Filters: from:, to:, subject:, tag:, is:unread, is:read, has:attachment"
                 className="h-9 w-full rounded-lg border border-line bg-paper pr-9 pl-9 text-[13px] outline-none transition placeholder:text-faint focus:border-accent focus:bg-surface focus:ring-3 focus:ring-accent/15 [&::-webkit-search-cancel-button]:hidden"
               />
               {input ? (
@@ -416,7 +429,15 @@ export default function App() {
           ) : page.messages.length === 0 ? (
             <EmptyList folder={folder} search={search} onClear={() => setInput("")} />
           ) : (
-            <MessageList messages={page.messages} selectedId={selectedId} checked={checked} fresh={fresh} onSelect={setSelectedId} onToggle={toggle} />
+            <MessageList
+              messages={page.messages}
+              selectedId={selectedId}
+              checked={checked}
+              fresh={fresh}
+              onSelect={setSelectedId}
+              onToggle={toggle}
+              onTag={showTag}
+            />
           )}
 
           {page.total > PAGE_SIZE && (
@@ -451,7 +472,13 @@ export default function App() {
                 </div>
               )}
             >
-              <MessageView id={selectedId} onBack={() => setSelectedId(null)} onDelete={(id) => deleteIds([id])} onMarkUnread={markUnread} />
+              <MessageView
+                id={selectedId}
+                onBack={() => setSelectedId(null)}
+                onDelete={(id) => deleteIds([id])}
+                onMarkUnread={markUnread}
+                onTag={showTag}
+              />
             </ErrorBoundary>
           )}
         </main>

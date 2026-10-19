@@ -42,12 +42,15 @@ func (h *Handler) setupRoutes() {
 	r.HandleFunc("/messages", h.listMessages).Methods("GET")
 	r.HandleFunc("/messages", h.deleteMessages).Methods("DELETE")
 	r.HandleFunc("/messages/read", h.setRead).Methods("PUT")
+	r.HandleFunc("/messages/wait", h.waitMessage).Methods("GET")
 	r.HandleFunc("/messages/{id:[0-9]+}", h.getMessage).Methods("GET")
 	r.HandleFunc("/messages/{id:[0-9]+}", h.deleteMessage).Methods("DELETE")
 	r.HandleFunc("/messages/{id:[0-9]+}/raw", h.getRaw).Methods("GET")
 	r.HandleFunc("/messages/{id:[0-9]+}/attachments/{aid:[0-9]+}", h.getAttachment).Methods("GET")
 	r.HandleFunc("/messages/{id:[0-9]+}/spam", h.spamCheck).Methods("GET")
 	r.HandleFunc("/messages/{id:[0-9]+}/links", h.linkCheck).Methods("GET")
+	r.HandleFunc("/messages/{id:[0-9]+}/extract", h.extract).Methods("GET")
+	r.HandleFunc("/tags", h.tags).Methods("GET")
 	r.HandleFunc("/events", h.streamEvents).Methods("GET")
 	h.Router.PathPrefix("/").Handler(staticHandler(h.Static))
 }
@@ -154,13 +157,28 @@ func (h *Handler) setRead(w http.ResponseWriter, r *http.Request) {
 
 var cidRe = regexp.MustCompile(`(?i)(["'(])cid:([^"')\s]+)`)
 
-// getMessage returns the full message and marks it read. Inline cid: references in
-// the HTML are rewritten to attachment URLs so embedded images display.
+// getMessage returns the full message and marks it read.
 func (h *Handler) getMessage(w http.ResponseWriter, r *http.Request) {
-	m, err := h.Storage.Get(messageID(r))
+	m, err := h.loadMessage(messageID(r))
 	if err != nil {
 		writeError(w, err)
 		return
+	}
+	if !m.Read {
+		if err := h.Storage.SetRead([]int64{m.ID}, true); err == nil {
+			m.Read = true
+			h.Events.Publish(events.Event{Type: "read", IDs: []int64{m.ID}, Read: true})
+		}
+	}
+	writeJSON(w, m)
+}
+
+// loadMessage fetches a message for display. Inline cid: references in the HTML are
+// rewritten to attachment URLs so embedded images show.
+func (h *Handler) loadMessage(id int64) (*storage.Message, error) {
+	m, err := h.Storage.Get(id)
+	if err != nil {
+		return nil, err
 	}
 	byCID := map[string]int64{}
 	for _, a := range m.AttachmentParts {
@@ -177,13 +195,114 @@ func (h *Handler) getMessage(w http.ResponseWriter, r *http.Request) {
 			return s
 		})
 	}
-	if !m.Read {
-		if err := h.Storage.SetRead([]int64{m.ID}, true); err == nil {
-			m.Read = true
-			h.Events.Publish(events.Event{Type: "read", IDs: []int64{m.ID}, Read: true})
+	return m, nil
+}
+
+const maxWait = 2 * time.Minute
+
+// waitMessage blocks until a message matching q (the same syntax as search) has
+// arrived, then returns it in full without marking it read. With since, only
+// messages received after that time count, so earlier mail can't satisfy the wait.
+// It responds 404 if nothing matches within timeout (default 30s, at most 2m).
+func (h *Handler) waitMessage(w http.ResponseWriter, r *http.Request) {
+	params := r.URL.Query()
+	timeout := 30 * time.Second
+	if t := params.Get("timeout"); t != "" {
+		d, err := parseTimeout(t)
+		if err != nil {
+			http.Error(w, "timeout must be a duration like 10s or a number of seconds", http.StatusBadRequest)
+			return
+		}
+		timeout = min(d, maxWait)
+	}
+	var since time.Time
+	if s := params.Get("since"); s != "" {
+		t, err := parseSince(s)
+		if err != nil {
+			http.Error(w, "since must be an RFC 3339 time or Unix milliseconds", http.StatusBadRequest)
+			return
+		}
+		since = t
+	}
+	q := storage.Query{Search: params.Get("q"), Since: since, Limit: 1}
+
+	// Subscribe before the first lookup so a message arriving in between isn't missed.
+	ch, cancel := h.Events.Subscribe()
+	defer cancel()
+	deadline := time.NewTimer(timeout)
+	defer deadline.Stop()
+	// Re-check now and then too: the event feed drops events for slow subscribers.
+	recheck := time.NewTicker(time.Second)
+	defer recheck.Stop()
+
+	for {
+		page, err := h.Storage.List(q)
+		if err != nil {
+			writeError(w, err)
+			return
+		}
+		if len(page.Messages) > 0 {
+			m, err := h.loadMessage(page.Messages[0].ID)
+			if err != nil {
+				writeError(w, err)
+				return
+			}
+			writeJSON(w, m)
+			return
+		}
+	wait:
+		for {
+			select {
+			case <-r.Context().Done():
+				return
+			case <-deadline.C:
+				http.Error(w, fmt.Sprintf("no matching message arrived within %s", timeout), http.StatusNotFound)
+				return
+			case <-recheck.C:
+				break wait
+			case e := <-ch:
+				if e.Type == "new" {
+					break wait
+				}
+			}
 		}
 	}
-	writeJSON(w, m)
+}
+
+func parseTimeout(s string) (time.Duration, error) {
+	if n, err := strconv.ParseFloat(s, 64); err == nil && n >= 0 {
+		return time.Duration(n * float64(time.Second)), nil
+	}
+	d, err := time.ParseDuration(s)
+	if err == nil && d < 0 {
+		err = errors.New("negative timeout")
+	}
+	return d, err
+}
+
+func parseSince(s string) (time.Time, error) {
+	if ms, err := strconv.ParseInt(s, 10, 64); err == nil {
+		return time.UnixMilli(ms), nil
+	}
+	return time.Parse(time.RFC3339Nano, s)
+}
+
+func (h *Handler) extract(w http.ResponseWriter, r *http.Request) {
+	m, err := h.Storage.Get(messageID(r))
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, checks.Extract(m))
+}
+
+func (h *Handler) tags(w http.ResponseWriter, r *http.Request) {
+	tags, err := h.Storage.Tags()
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, tags)
 }
 
 // Files from emails are untrusted: forbid sniffing and sandbox them so an HTML or

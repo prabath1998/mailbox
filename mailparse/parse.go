@@ -58,7 +58,44 @@ func Parse(raw []byte, envelopeFrom string, envelopeTo []string) (*storage.Messa
 	m.Headers = orderedHeaders(raw)
 	m.AttachmentParts = attachments(env)
 	m.Snippet = snippet(m.Text, m.HTML)
+	m.Tags = Tags(env.GetHeader("X-Tags"), append(append(append([]storage.Address{}, m.To...), m.Cc...), m.Bcc...))
 	return m, nil
+}
+
+const maxTags = 10
+
+var tagCharRe = regexp.MustCompile(`[^a-z0-9._-]+`)
+
+// Tags collects tags from a comma-separated X-Tags header and from plus-addressed
+// recipients (dev+billing@example.com is tagged "billing"). Tags are lowercased and
+// limited to letters, digits, '.', '_' and '-'.
+func Tags(header string, recipients []storage.Address) []string {
+	var out []string
+	seen := map[string]bool{}
+	add := func(t string) {
+		t = strings.Trim(tagCharRe.ReplaceAllString(strings.ToLower(strings.TrimSpace(t)), "-"), "-")
+		if len(t) > 32 {
+			t = t[:32]
+		}
+		if t == "" || seen[t] || len(out) >= maxTags {
+			return
+		}
+		seen[t] = true
+		out = append(out, t)
+	}
+	for _, t := range strings.Split(header, ",") {
+		add(t)
+	}
+	for _, r := range recipients {
+		local, _, ok := strings.Cut(r.Address, "@")
+		if !ok {
+			continue
+		}
+		if _, tag, ok := strings.Cut(local, "+"); ok {
+			add(tag)
+		}
+	}
+	return out
 }
 
 func addressList(env *enmime.Envelope, key string) []storage.Address {

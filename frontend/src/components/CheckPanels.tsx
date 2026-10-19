@@ -1,5 +1,6 @@
-import { CheckCircle2, ExternalLink, Image, Link2, Loader2, Play, RotateCw, ShieldCheck, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ExternalLink, Image, Link2, Loader2, Moon, Play, RotateCw, ShieldCheck, XCircle } from "lucide-react";
 import { useState, type ReactNode } from "react";
+import type { A11yFinding, A11yReport } from "../a11ycheck";
 import { api } from "../api";
 import { CLIENTS, type HtmlReport } from "../htmlcheck";
 import type { LinkReport, SpamReport } from "../types";
@@ -241,6 +242,87 @@ export function LinkCheckPanel({ id }: { id: number }) {
       )}
       {error && <p className="text-[13px] text-postal">{error}</p>}
     </div>
+  );
+}
+
+export function AccessibilityPanel({ report, onPreviewDark }: { report: A11yReport | null; onPreviewDark: () => void }) {
+  if (!report) return <Loading />;
+  const errors = report.findings.filter((f) => f.severity === "error").length;
+  return (
+    <div className="mx-auto max-w-3xl space-y-4">
+      <Summary
+        value={`${report.score}`}
+        ratio={report.score / 100}
+        label={report.findings.length === 0 ? "No accessibility problems found" : errors > 0 ? "Some readers will struggle" : "Mostly accessible"}
+        tone={scoreTone(report.score >= 90, report.score >= 70)}
+        caption={
+          report.findings.length === 0
+            ? "Images have alt text, links make sense on their own, and text is readable."
+            : `${report.findings.length} issue${report.findings.length === 1 ? "" : "s"} for people using screen readers, low vision, or blocked images.`
+        }
+      />
+
+      <div className="panel flex items-center gap-3 px-4 py-3 text-[13px]">
+        <Moon className={`size-4 shrink-0 ${report.darkMode ? "text-ok" : "text-faint"}`} />
+        <p className="min-w-0 flex-1 text-ink-2">
+          {report.darkMode
+            ? "This email has its own dark-mode styles."
+            : "This email has no dark-mode styles, so apps that force dark mode will invert its colours."}
+        </p>
+        <button onClick={onPreviewDark} className="btn-outline shrink-0">
+          Preview in dark mode
+        </button>
+      </div>
+
+      {report.findings.length > 0 ? (
+        <List>
+          {report.findings.map((f) => (
+            <A11yItem key={f.id} finding={f} />
+          ))}
+        </List>
+      ) : (
+        <Empty icon={<CheckCircle2 className="size-5" />} text="Every automated check passed." />
+      )}
+      <Footnote>Automated checks catch common problems, not all of them. Try the email with a screen reader before a big send.</Footnote>
+    </div>
+  );
+}
+
+function A11yItem({ finding: f }: { finding: A11yFinding }) {
+  return (
+    <li className="flex gap-3 px-4 py-3.5">
+      {f.severity === "error" ? (
+        <XCircle className="mt-0.5 size-4 shrink-0 text-postal" aria-label="Error" />
+      ) : (
+        <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warn" aria-label="Warning" />
+      )}
+      <div className="min-w-0 flex-1">
+        <p className="text-[13px] font-semibold">
+          {f.title}
+          {f.count > 1 && <span className="ml-1.5 font-normal text-faint tabular-nums">×{f.count}</span>}
+        </p>
+        <p className="mt-0.5 text-[13px] text-muted">{f.detail}</p>
+        {f.samples.length > 0 && (
+          <ul className="mt-2 space-y-1">
+            {f.samples.map((s) => (
+              <li key={s.text} className="flex items-center gap-2 text-xs text-ink-2">
+                {s.fg && s.bg && (
+                  <span
+                    className="inline-flex h-5 shrink-0 items-center rounded border border-line px-1.5 font-semibold"
+                    style={{ color: s.fg, background: s.bg }}
+                    title={`${s.fg} on ${s.bg}`}
+                  >
+                    Aa
+                  </span>
+                )}
+                <span className="min-w-0 truncate">“{s.text}”</span>
+                {s.ratio !== undefined && <span className="shrink-0 font-medium text-postal tabular-nums">{s.ratio}:1</span>}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </li>
   );
 }
 
