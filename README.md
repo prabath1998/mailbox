@@ -18,25 +18,67 @@ there is no TLS.
 
 ## Install
 
-**Script** (Linux and macOS):
+MailBox is a single binary. It listens on port 8025 for the web UI and port 1025 for SMTP.
+
+### Homebrew (macOS and Linux)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/prabath1998/mailbox/master/install.sh | sh
+brew install prabath1998/tap/mailbox
+brew services start mailbox   # optional: keep it running in the background
 ```
 
-**Go**:
+### Install script (Linux and macOS)
+
+Installs to `/usr/local/bin/mailbox`:
+
+```bash
+sudo sh < <(curl -sL https://raw.githubusercontent.com/prabath1998/mailbox/master/install.sh)
+```
+
+Set `INSTALL_PATH` to install somewhere else, or `VERSION` to pin a release:
+
+```bash
+sudo INSTALL_PATH=/usr/bin VERSION=v0.1.0 sh < <(curl -sL https://raw.githubusercontent.com/prabath1998/mailbox/master/install.sh)
+```
+
+Without `sudo`, it installs to `~/.local/bin`. The script verifies the download against the release checksums.
+
+### Download a binary (Windows, Linux and macOS)
+
+Get the archive for your platform from the [releases page](https://github.com/prabath1998/mailbox/releases),
+extract `mailbox` (`mailbox.exe` on Windows), and run it or copy it onto your `PATH`.
+
+### Docker
+
+```bash
+docker run -d --name mailbox -p 1025:1025 -p 8025:8025 -v mailbox:/data ghcr.io/prabath1998/mailbox
+```
+
+Images are published for amd64 and arm64.
+
+### Go
 
 ```bash
 go install github.com/prabath1998/mailbox@latest
 ```
 
-**Docker**:
+### Run it automatically with systemd (Linux)
 
-```bash
-docker run -d -p 1025:1025 -p 8025:8025 -v mailbox:/data ghcr.io/prabath1998/mailbox
+Save as `~/.config/systemd/user/mailbox.service`:
+
+```ini
+[Unit]
+Description=MailBox mail catcher
+
+[Service]
+ExecStart=/usr/local/bin/mailbox
+Restart=on-failure
+
+[Install]
+WantedBy=default.target
 ```
 
-**Binaries** for Linux, macOS and Windows are on the [releases page](https://github.com/prabath1998/mailbox/releases).
+Then run `systemctl --user enable --now mailbox`.
 
 ## Run
 
@@ -85,6 +127,10 @@ GoReleaser, attaches them to a GitHub release, and pushes a multi-arch image to
 ```bash
 git tag v0.1.0 && git push origin v0.1.0
 ```
+
+The Homebrew formula is published to `github.com/prabath1998/homebrew-tap` when the
+repository secret `HOMEBREW_TAP_TOKEN` is set: a fine-grained token with
+*Contents: read and write* on that repo. Without it, releases skip Homebrew.
 
 ## API
 

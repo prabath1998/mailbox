@@ -26,3 +26,28 @@ changelog:
   sort: asc
   filters:
     exclude: ["^docs:", "^chore:", "^ci:"]
+
+# Homebrew: `brew install prabath1998/tap/mailbox`. Needs the github.com/prabath1998/homebrew-tap
+# repo and a HOMEBREW_TAP_TOKEN secret; without the secret this step is skipped.
+# `brews` (a formula) rather than `homebrew_casks`: it also works on Linux and macOS
+# Gatekeeper does not block the unsigned binary.
+brews:
+  - name: mailbox
+    repository:
+      owner: prabath1998
+      name: homebrew-tap
+      token: '{{ envOrDefault "HOMEBREW_TAP_TOKEN" "" }}'
+    directory: Formula
+    homepage: https://github.com/prabath1998/mailbox
+    description: Catches the email your app sends and shows it in a web UI
+    skip_upload: '{{ if eq (envOrDefault "HOMEBREW_TAP_TOKEN" "") "" }}true{{ else }}auto{{ end }}'
+    install: |
+      bin.install "mailbox"
+    test: |
+      system "#{bin}/mailbox", "-version"
+    # Lets people run it in the background with `brew services start mailbox`.
+    service: |
+      run [opt_bin/"mailbox"]
+      keep_alive true
+      log_path var/"log/mailbox.log"
+      error_log_path var/"log/mailbox.log"
