@@ -1,12 +1,13 @@
+import type { CSSProperties } from "react";
 import { avatarHue, initials } from "../format";
 
 export function Avatar({ name, size = "md" }: { name: string; size?: "md" | "lg" }) {
-  const hue = avatarHue(name);
-  const dims = size === "lg" ? "size-11 text-sm" : "size-9 text-xs";
+  const dims = size === "lg" ? "size-10 text-[13px]" : "size-8 text-[11px]";
   return (
     <div
-      className={`${dims} flex shrink-0 items-center justify-center rounded-full font-semibold text-white`}
-      style={{ background: `linear-gradient(135deg, hsl(${hue} 75% 60%), hsl(${hue + 30} 70% 50%))` }}
+      aria-hidden
+      style={{ "--h": avatarHue(name) } as CSSProperties}
+      className={`${dims} flex shrink-0 items-center justify-center rounded-full bg-[hsl(var(--h)_75%_93%)] font-semibold tracking-wide text-[hsl(var(--h)_55%_34%)] dark:bg-[hsl(var(--h)_35%_22%)] dark:text-[hsl(var(--h)_80%_82%)]`}
     >
       {initials(name)}
     </div>

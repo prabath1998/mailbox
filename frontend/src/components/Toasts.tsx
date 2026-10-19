@@ -1,4 +1,5 @@
-import { Mail, X } from "lucide-react";
+import { X } from "lucide-react";
+import { Avatar } from "./Avatar";
 
 export interface Toast {
   id: number;
@@ -9,31 +10,32 @@ export interface Toast {
 
 export function Toasts({ toasts, dismiss }: { toasts: Toast[]; dismiss: (id: number) => void }) {
   return (
-    <div className="pointer-events-none fixed right-4 bottom-4 z-50 flex w-80 flex-col gap-2">
+    <div
+      role="status"
+      aria-live="polite"
+      className="pointer-events-none fixed right-4 bottom-4 z-40 flex w-[min(22rem,calc(100vw-2rem))] flex-col gap-2"
+    >
       {toasts.map((t) => (
         <div
           key={t.id}
-          className="animate-toast pointer-events-auto flex cursor-pointer items-start gap-3 rounded-xl border border-zinc-200 bg-white/95 p-3 shadow-lg shadow-zinc-900/10 backdrop-blur dark:border-zinc-800 dark:bg-zinc-900/95"
-          onClick={() => {
-            t.onClick?.();
-            dismiss(t.id);
-          }}
+          className="animate-pop pointer-events-auto relative flex items-center gap-3 overflow-hidden rounded-xl border border-line bg-raised p-3 pl-4 shadow-pop"
         >
-          <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-500">
-            <Mail className="size-4" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium">{t.title}</p>
-            <p className="truncate text-xs text-zinc-500">{t.body}</p>
-          </div>
+          <span aria-hidden className="airmail absolute inset-y-0 left-0 w-1" />
           <button
-            onClick={(e) => {
-              e.stopPropagation();
+            className="flex min-w-0 flex-1 items-center gap-3 text-left"
+            onClick={() => {
+              t.onClick?.();
               dismiss(t.id);
             }}
-            className="text-zinc-400 hover:text-zinc-600"
           >
-            <X className="size-4" />
+            <Avatar name={t.title} />
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[13px] font-semibold">{t.title}</span>
+              <span className="block truncate text-xs text-muted">{t.body}</span>
+            </span>
+          </button>
+          <button onClick={() => dismiss(t.id)} aria-label="Dismiss" className="icon-btn size-7">
+            <X className="size-3.5" />
           </button>
         </div>
       ))}

@@ -61,3 +61,7 @@ export interface InboxEvent {
   read?: boolean;
   message?: Summary;
 }
+
+export interface Info {
+  smtpAddr: string;
+}

@@ -4,12 +4,16 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="description" content="Local SMTP mail catcher for development" />
+    <meta name="theme-color" content="#f5f6f8" />
     <title>MailBox</title>
     <script>
       try {
         const t = localStorage.getItem("theme");
         if (t === "dark" || (!t && matchMedia("(prefers-color-scheme: dark)").matches))
           document.documentElement.classList.add("dark");
+        if (document.documentElement.classList.contains("dark"))
+          document.querySelector('meta[name="theme-color"]').setAttribute("content", "#0f1217");
       } catch {}
     </script>
   </head>

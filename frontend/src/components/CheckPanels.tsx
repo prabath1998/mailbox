@@ -1,138 +1,171 @@
-import { CheckCircle2, ExternalLink, Image, Link2, Loader2, Play, ShieldCheck, XCircle } from "lucide-react";
+import { CheckCircle2, ExternalLink, Image, Link2, Loader2, Play, RotateCw, ShieldCheck, XCircle } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { api } from "../api";
 import { CLIENTS, type HtmlReport } from "../htmlcheck";
 import type { LinkReport, SpamReport } from "../types";
 
 export function scoreTone(good: boolean, warn: boolean) {
-  if (good) return "text-emerald-600 dark:text-emerald-400";
-  if (warn) return "text-amber-600 dark:text-amber-400";
-  return "text-red-600 dark:text-red-400";
+  if (good) return "text-ok";
+  if (warn) return "text-warn";
+  return "text-postal";
 }
 
-function Gauge({ value, max, label, tone, caption }: { value: string; max?: string; label: string; tone: string; caption: string }) {
+/** Headline result for a check: a ring that fills to `ratio`, the value, and what it means. */
+function Summary({
+  value,
+  max,
+  ratio,
+  label,
+  tone,
+  caption,
+  action,
+}: {
+  value: string;
+  max?: string;
+  ratio: number;
+  label: string;
+  tone: string;
+  caption: string;
+  action?: ReactNode;
+}) {
+  const r = 26;
+  const c = 2 * Math.PI * r;
   return (
-    <div className="flex items-center gap-4 rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
-      <div className={`text-4xl font-semibold tracking-tight tabular-nums ${tone}`}>
-        {value}
-        {max && <span className="text-lg text-zinc-400">{max}</span>}
+    <div className="panel flex items-center gap-5 p-5">
+      <div className={`relative size-16 shrink-0 ${tone}`}>
+        <svg viewBox="0 0 64 64" className="size-full -rotate-90" aria-hidden>
+          <circle cx="32" cy="32" r={r} fill="none" stroke="var(--sunken)" strokeWidth="6" />
+          <circle
+            cx="32"
+            cy="32"
+            r={r}
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="6"
+            strokeLinecap="round"
+            strokeDasharray={c}
+            strokeDashoffset={c * (1 - Math.min(1, Math.max(0, ratio)))}
+            className="transition-[stroke-dashoffset] duration-700"
+          />
+        </svg>
+        <span className="absolute inset-0 flex items-center justify-center text-[15px] font-semibold tabular-nums">{value}</span>
       </div>
-      <div>
-        <p className="font-medium">{label}</p>
-        <p className="text-sm text-zinc-500">{caption}</p>
+      <div className="min-w-0 flex-1">
+        <p className="font-semibold">
+          {label}
+          {max && <span className="ml-1.5 text-[13px] font-normal text-faint">{max}</span>}
+        </p>
+        <p className="mt-0.5 text-[13px] text-muted">{caption}</p>
       </div>
+      {action}
     </div>
   );
 }
 
-const Card = ({ children }: { children: ReactNode }) => (
-  <div className="divide-y divide-zinc-200 overflow-hidden rounded-2xl border border-zinc-200 bg-white dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-900">
-    {children}
-  </div>
-);
+const List = ({ children }: { children: ReactNode }) => <ul className="panel divide-y divide-line overflow-hidden">{children}</ul>;
+
+const Footnote = ({ children }: { children: ReactNode }) => <p className="text-xs text-faint">{children}</p>;
 
 export function HtmlCheckPanel({ report }: { report: HtmlReport }) {
-  const tone = scoreTone(report.score >= 90, report.score >= 70);
   return (
     <div className="mx-auto max-w-3xl space-y-4">
-      <Gauge
-        value={`${report.score}%`}
-        label="Email client compatibility"
-        tone={tone}
+      <Summary
+        value={`${report.score}`}
+        ratio={report.score / 100}
+        label={report.score >= 90 ? "Renders well everywhere" : report.score >= 70 ? "Mostly compatible" : "Rendering problems likely"}
+        tone={scoreTone(report.score >= 90, report.score >= 70)}
         caption={
           report.findings.length === 0
-            ? "No features with known support problems were found."
-            : `${report.findings.length} feature${report.findings.length === 1 ? "" : "s"} won't render the same everywhere.`
+            ? "No features with known client support problems were found."
+            : `${report.findings.length} feature${report.findings.length === 1 ? "" : "s"} won't render the same in every client.`
         }
       />
 
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+      <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
         {CLIENTS.map((c) => {
           const { unsupported, partial } = report.perClient[c];
           return (
-            <div key={c} className="flex items-center justify-between gap-2 rounded-xl border border-zinc-200 bg-white px-3 py-2.5 text-sm dark:border-zinc-800 dark:bg-zinc-900">
+            <li key={c} className="panel flex items-center justify-between gap-2 px-3 py-2.5 text-[13px]">
               <span className="truncate">{c}</span>
               {unsupported + partial === 0 ? (
-                <CheckCircle2 className="size-4 shrink-0 text-emerald-500" />
+                <CheckCircle2 className="size-4 shrink-0 text-ok" aria-label="Fully supported" />
               ) : (
-                <span className="shrink-0 text-xs font-medium">
-                  {unsupported > 0 && <span className="text-red-500">{unsupported} unsupported</span>}
-                  {unsupported > 0 && partial > 0 && <span className="text-zinc-400"> · </span>}
-                  {partial > 0 && <span className="text-amber-500">{partial} partial</span>}
+                <span className="shrink-0 text-xs font-medium tabular-nums">
+                  {unsupported > 0 && <span className="text-postal">{unsupported} unsupported</span>}
+                  {unsupported > 0 && partial > 0 && <span className="text-faint">, </span>}
+                  {partial > 0 && <span className="text-warn">{partial} partial</span>}
                 </span>
               )}
-            </div>
+            </li>
           );
         })}
-      </div>
+      </ul>
 
       {report.findings.length > 0 && (
-        <Card>
+        <List>
           {report.findings.map((f) => (
-            <div key={f.id} className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-start sm:justify-between">
-              <a href={f.url} target="_blank" rel="noreferrer" className="group flex items-center gap-1.5 font-mono text-sm font-medium hover:text-indigo-500">
+            <li key={f.id} className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-start sm:justify-between">
+              <a href={f.url} target="_blank" rel="noreferrer" className="group flex items-center gap-1.5 font-mono text-[13px] font-medium hover:text-accent">
                 {f.title}
-                <ExternalLink className="size-3 opacity-0 transition-opacity group-hover:opacity-100" />
+                <ExternalLink className="size-3 text-faint transition-colors group-hover:text-accent" />
               </a>
               <div className="flex flex-wrap gap-1 sm:justify-end">
                 {f.unsupported.map((c) => (
-                  <span key={c} className="rounded-md bg-red-500/10 px-1.5 py-0.5 text-xs text-red-600 dark:text-red-400">
+                  <span key={c} className="rounded-md bg-postal-soft px-1.5 py-0.5 text-xs text-postal">
                     {c}
                   </span>
                 ))}
                 {f.partial.map((c) => (
-                  <span key={c} className="rounded-md bg-amber-500/10 px-1.5 py-0.5 text-xs text-amber-700 dark:text-amber-400">
-                    {c} · partial
+                  <span key={c} className="rounded-md bg-sunken px-1.5 py-0.5 text-xs text-warn">
+                    {c} (partial)
                   </span>
                 ))}
               </div>
-            </div>
+            </li>
           ))}
-        </Card>
+        </List>
       )}
-      <p className="text-xs text-zinc-500">
+      <Footnote>
         Based on a simplified set of{" "}
-        <a href="https://www.caniemail.com" target="_blank" rel="noreferrer" className="underline underline-offset-2">
+        <a href="https://www.caniemail.com" target="_blank" rel="noreferrer" className="underline underline-offset-2 hover:text-ink">
           caniemail.com
         </a>{" "}
-        data. Click a feature for details.
-      </p>
+        data. Open a feature for details.
+      </Footnote>
     </div>
   );
 }
 
 export function SpamPanel({ report }: { report: SpamReport | null }) {
   if (!report) return <Loading />;
-  const tone = scoreTone(report.score < 2.5, report.score < report.threshold);
   return (
     <div className="mx-auto max-w-3xl space-y-4">
-      <Gauge
+      <Summary
         value={report.score.toFixed(1)}
-        max={` / ${report.threshold}`}
+        max={`threshold ${report.threshold}`}
+        ratio={report.score / report.threshold}
         label={report.isSpam ? "Likely to be flagged as spam" : report.score >= 2.5 ? "Some spam signals" : "Looks clean"}
-        tone={tone}
-        caption="Lower is better. Messages at or above the threshold are usually filtered."
+        tone={scoreTone(report.score < 2.5, report.score < report.threshold)}
+        caption="Lower is better. Mail at or above the threshold is usually filtered."
       />
       {report.rules.length > 0 ? (
-        <Card>
+        <List>
           {report.rules.map((r) => (
-            <div key={r.name} className="flex items-start gap-3 px-4 py-3">
-              <span className={`w-10 shrink-0 pt-0.5 text-right font-mono text-sm tabular-nums ${r.score >= 1.5 ? "text-red-500" : "text-amber-500"}`}>
+            <li key={r.name} className="flex items-start gap-4 px-4 py-3">
+              <span className={`w-10 shrink-0 pt-px text-right text-[13px] font-semibold tabular-nums ${r.score >= 1.5 ? "text-postal" : "text-warn"}`}>
                 +{r.score.toFixed(1)}
               </span>
               <div className="min-w-0">
-                <p className="font-mono text-xs font-medium text-zinc-500">{r.name}</p>
-                <p className="text-sm">{r.description}</p>
+                <p className="text-[13px]">{r.description}</p>
+                <p className="mt-0.5 font-mono text-xs text-faint">{r.name}</p>
               </div>
-            </div>
+            </li>
           ))}
-        </Card>
+        </List>
       ) : (
-        <Empty icon={<ShieldCheck className="size-6" />} text="No spam rules matched." />
+        <Empty icon={<ShieldCheck className="size-5" />} text="No spam rules matched." />
       )}
-      <p className="text-xs text-zinc-500">
-        Built-in heuristics modelled on common SpamAssassin rules. No external service needed.
-      </p>
+      <Footnote>Built-in heuristics modelled on common SpamAssassin rules. Nothing leaves your machine.</Footnote>
     </div>
   );
 }
@@ -156,63 +189,64 @@ export function LinkCheckPanel({ id }: { id: number }) {
 
   if (!report) {
     return (
-      <div className="mx-auto flex max-w-md flex-col items-center gap-3 py-10 text-center">
-        <div className="flex size-12 items-center justify-center rounded-2xl bg-indigo-500/10 text-indigo-500">
-          <Link2 className="size-6" />
+      <div className="panel mx-auto flex max-w-md flex-col items-center gap-2 px-6 py-10 text-center">
+        <div className="mb-1 flex size-11 items-center justify-center rounded-xl bg-accent-soft text-accent">
+          <Link2 className="size-5" />
         </div>
-        <p className="font-medium">Check every link and image</p>
-        <p className="text-sm text-zinc-500">
-          MailBox will request each URL from your machine and report broken links, 404s and unreachable images.
-        </p>
-        <button onClick={run} disabled={running} className="btn mt-2 bg-indigo-600 text-white hover:bg-indigo-700">
+        <p className="font-semibold">Check every link and image</p>
+        <p className="text-[13px] text-muted">MailBox requests each URL from your machine and reports broken links, 404s and images that don't load.</p>
+        <button onClick={run} disabled={running} className="btn-primary mt-3">
           {running ? <Loader2 className="size-4 animate-spin" /> : <Play className="size-4" />}
-          {running ? "Checking…" : "Run link check"}
+          {running ? "Checking links…" : "Check links"}
         </button>
-        {error && <p className="text-sm text-red-500">{error}</p>}
+        {error && <p className="text-[13px] text-postal">{error}</p>}
       </div>
     );
   }
 
+  const total = report.links.length;
   return (
     <div className="mx-auto max-w-3xl space-y-4">
-      <div className="flex items-center justify-between">
-        <Gauge
-          value={String(report.broken)}
-          max={` / ${report.links.length}`}
-          label={report.broken === 0 ? "All links work" : `${report.broken} broken`}
-          tone={scoreTone(report.broken === 0, false)}
-          caption="Links and images that failed or returned an error."
-        />
-        <button onClick={run} disabled={running} className="btn-ghost">
-          {running ? <Loader2 className="size-4 animate-spin" /> : <Play className="size-4" />}
-          Re-run
-        </button>
-      </div>
-      {report.links.length === 0 ? (
-        <Empty icon={<Link2 className="size-6" />} text="This message has no http(s) links." />
+      <Summary
+        value={String(report.broken)}
+        max={`of ${total}`}
+        ratio={total ? (total - report.broken) / total : 1}
+        label={report.broken === 0 ? "All links work" : `${report.broken} broken`}
+        tone={scoreTone(report.broken === 0, false)}
+        caption="Links and images that failed or returned an error status."
+        action={
+          <button onClick={run} disabled={running} className="btn-outline">
+            {running ? <Loader2 className="size-4 animate-spin" /> : <RotateCw className="size-4" />}
+            Check again
+          </button>
+        }
+      />
+      {total === 0 ? (
+        <Empty icon={<Link2 className="size-5" />} text="This message has no http(s) links." />
       ) : (
-        <Card>
+        <List>
           {report.links.map((l) => (
-            <div key={l.url} className="flex items-center gap-3 px-4 py-2.5 text-sm">
-              {l.ok ? <CheckCircle2 className="size-4 shrink-0 text-emerald-500" /> : <XCircle className="size-4 shrink-0 text-red-500" />}
-              {l.kind === "image" ? <Image className="size-3.5 shrink-0 text-zinc-400" /> : <Link2 className="size-3.5 shrink-0 text-zinc-400" />}
-              <a href={l.url} target="_blank" rel="noreferrer" className="min-w-0 flex-1 truncate font-mono text-xs hover:text-indigo-500">
+            <li key={l.url} className="flex items-center gap-3 px-4 py-2.5 text-[13px]">
+              {l.ok ? <CheckCircle2 className="size-4 shrink-0 text-ok" aria-label="Works" /> : <XCircle className="size-4 shrink-0 text-postal" aria-label="Broken" />}
+              {l.kind === "image" ? <Image className="size-3.5 shrink-0 text-faint" aria-label="Image" /> : <Link2 className="size-3.5 shrink-0 text-faint" aria-label="Link" />}
+              <a href={l.url} target="_blank" rel="noreferrer" className="min-w-0 flex-1 truncate font-mono text-xs hover:text-accent">
                 {l.url}
               </a>
-              <span className={`shrink-0 text-xs tabular-nums ${l.ok ? "text-zinc-500" : "text-red-500"}`} title={l.error}>
+              <span className={`shrink-0 text-xs tabular-nums ${l.ok ? "text-faint" : "font-medium text-postal"}`} title={l.error}>
                 {l.status ? `${l.status} ${l.statusText}` : "Unreachable"}
               </span>
-            </div>
+            </li>
           ))}
-        </Card>
+        </List>
       )}
+      {error && <p className="text-[13px] text-postal">{error}</p>}
     </div>
   );
 }
 
 function Loading() {
   return (
-    <div className="flex justify-center py-10 text-zinc-400">
+    <div className="flex justify-center py-10 text-faint" aria-busy>
       <Loader2 className="size-5 animate-spin" />
     </div>
   );
@@ -220,9 +254,9 @@ function Loading() {
 
 function Empty({ icon, text }: { icon: ReactNode; text: string }) {
   return (
-    <div className="flex flex-col items-center gap-2 py-8 text-zinc-400">
-      {icon}
-      <p className="text-sm">{text}</p>
+    <div className="panel flex flex-col items-center gap-2 py-8 text-muted">
+      <span className="text-ok">{icon}</span>
+      <p className="text-[13px]">{text}</p>
     </div>
   );
 }

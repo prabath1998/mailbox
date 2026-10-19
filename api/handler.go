@@ -23,16 +23,19 @@ type Handler struct {
 	Storage *storage.SQLiteStorage
 	Events  *events.Hub
 	Router  *mux.Router
+	// SMTPAddr is shown in the UI so people know where to point their app.
+	SMTPAddr string
 }
 
-func NewHandler(store *storage.SQLiteStorage, hub *events.Hub) *Handler {
-	h := &Handler{Storage: store, Events: hub, Router: mux.NewRouter()}
+func NewHandler(store *storage.SQLiteStorage, hub *events.Hub, smtpAddr string) *Handler {
+	h := &Handler{Storage: store, Events: hub, Router: mux.NewRouter(), SMTPAddr: smtpAddr}
 	h.setupRoutes()
 	return h
 }
 
 func (h *Handler) setupRoutes() {
 	r := h.Router.PathPrefix("/api").Subrouter()
+	r.HandleFunc("/info", h.info).Methods("GET")
 	r.HandleFunc("/messages", h.listMessages).Methods("GET")
 	r.HandleFunc("/messages", h.deleteMessages).Methods("DELETE")
 	r.HandleFunc("/messages/read", h.setRead).Methods("PUT")
@@ -63,6 +66,10 @@ func writeError(w http.ResponseWriter, err error) {
 func messageID(r *http.Request) int64 {
 	id, _ := strconv.ParseInt(mux.Vars(r)["id"], 10, 64)
 	return id
+}
+
+func (h *Handler) info(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, map[string]string{"smtpAddr": h.SMTPAddr})
 }
 
 func (h *Handler) listMessages(w http.ResponseWriter, r *http.Request) {

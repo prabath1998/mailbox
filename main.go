@@ -35,6 +35,6 @@ func main() {
 		}
 	}()
 
-	apiHandler := api.NewHandler(store, hub)
+	apiHandler := api.NewHandler(store, hub, *smtpAddr)
 	log.Fatal(apiHandler.Start(*httpAddr))
 }

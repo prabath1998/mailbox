@@ -36,6 +36,7 @@ cd frontend && npm run dev    # terminal 2: http://localhost:5173 with hot reloa
 
 | Method | Path | |
 | --- | --- | --- |
+| GET | `/api/info` | Server info (SMTP address) |
 | GET | `/api/messages?q=&limit=&offset=` | List and search |
 | GET | `/api/messages/{id}` | Full message (marks it read) |
 | DELETE | `/api/messages` | Delete `{"ids": [...]}`, or everything with no body |

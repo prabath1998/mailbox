@@ -1,4 +1,4 @@
-import type { LinkReport, Message, Page, SpamReport } from "./types";
+import type { Info, LinkReport, Message, Page, SpamReport } from "./types";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`/api${path}`, {
@@ -10,6 +10,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  info: () => request<Info>("/info"),
   list: (q: string, limit: number, offset: number) =>
     request<Page>(`/messages?${new URLSearchParams({ q, limit: String(limit), offset: String(offset) })}`),
   get: (id: number) => request<Message>(`/messages/${id}`),

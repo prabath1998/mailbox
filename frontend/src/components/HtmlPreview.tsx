@@ -11,25 +11,30 @@ const wrap = (body: string) => `<!doctype html><html><head>
 export function HtmlPreview({ html, width }: { html: string; width: "desktop" | "mobile" }) {
   const ref = useRef<HTMLIFrameElement>(null);
   const [height, setHeight] = useState(400);
+  const mobile = width === "mobile";
 
   const measure = () => {
     const doc = ref.current?.contentDocument;
-    if (doc) setHeight(Math.max(200, doc.documentElement.scrollHeight));
+    if (doc?.body) setHeight(Math.max(240, doc.body.offsetHeight));
   };
 
   return (
     <div className="flex justify-center">
-      <iframe
-        ref={ref}
-        title="HTML preview"
-        sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
-        srcDoc={wrap(html)}
-        onLoad={measure}
-        style={{ height }}
-        className={`rounded-xl border border-zinc-200 bg-white shadow-sm transition-[width] duration-300 dark:border-zinc-800 ${
-          width === "mobile" ? "w-[375px]" : "w-full"
+      <div
+        className={`overflow-hidden bg-white shadow-pop transition-[width,border-radius] duration-300 ${
+          mobile ? "w-97.75 rounded-[28px] border-8 border-ink/90 dark:border-line-strong" : "w-full max-w-250 rounded-xl border border-line"
         }`}
-      />
+      >
+        <iframe
+          ref={ref}
+          title="Email preview"
+          sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+          srcDoc={wrap(html)}
+          onLoad={measure}
+          style={{ height }}
+          className="block w-full"
+        />
+      </div>
     </div>
   );
 }
