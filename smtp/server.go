@@ -4,11 +4,12 @@ import (
 	"errors"
 	"io"
 	"log"
+	"net"
 	"time"
 
-	"mailbox/events"
-	"mailbox/mailparse"
-	"mailbox/storage"
+	"github.com/prabath1998/mailbox/events"
+	"github.com/prabath1998/mailbox/mailparse"
+	"github.com/prabath1998/mailbox/storage"
 
 	"github.com/emersion/go-sasl"
 	gosmtp "github.com/emersion/go-smtp"
@@ -17,16 +18,17 @@ import (
 const maxMessageBytes = 25 << 20
 
 type SMTPServer struct {
-	Addr    string
 	Storage *storage.SQLiteStorage
 	Events  *events.Hub
+	srv     *gosmtp.Server
 }
 
-func (s *SMTPServer) Start() error {
+func NewSMTPServer(store *storage.SQLiteStorage, hub *events.Hub) *SMTPServer {
+	s := &SMTPServer{Storage: store, Events: hub}
 	srv := gosmtp.NewServer(gosmtp.BackendFunc(func(*gosmtp.Conn) (gosmtp.Session, error) {
 		return &session{srv: s}, nil
 	}))
-	srv.Addr = s.Addr
+	s.srv = srv
 	srv.Domain = "localhost"
 	srv.MaxMessageBytes = maxMessageBytes
 	srv.MaxRecipients = 500
@@ -35,8 +37,17 @@ func (s *SMTPServer) Start() error {
 	// This is a dev sandbox: accept any credentials over plain text.
 	srv.AllowInsecureAuth = true
 
-	log.Printf("SMTP server listening on %s", s.Addr)
-	return srv.ListenAndServe()
+	return s
+}
+
+// Serve accepts SMTP connections on l until Close is called.
+func (s *SMTPServer) Serve(l net.Listener) error {
+	return s.srv.Serve(l)
+}
+
+// Close stops accepting mail and closes open connections.
+func (s *SMTPServer) Close() error {
+	return s.srv.Close()
 }
 
 type session struct {

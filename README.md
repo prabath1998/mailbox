@@ -16,20 +16,74 @@ there is no TLS.
 - Built-in spam score (no SpamAssassin needed)
 - Keyboard: `j`/`k` move, `/` search, `e` delete, `u` unread, `x` select, `r` refresh
 
+## Install
+
+**Script** (Linux and macOS):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/prabath1998/mailbox/master/install.sh | sh
+```
+
+**Go**:
+
+```bash
+go install github.com/prabath1998/mailbox@latest
+```
+
+**Docker**:
+
+```bash
+docker run -d -p 1025:1025 -p 8025:8025 -v mailbox:/data ghcr.io/prabath1998/mailbox
+```
+
+**Binaries** for Linux, macOS and Windows are on the [releases page](https://github.com/prabath1998/mailbox/releases).
+
 ## Run
 
 ```bash
-cd frontend && npm install && npm run build && cd ..   # builds the UI into web/
-go run .
+mailbox          # then open http://localhost:8025
+mailbox -open    # also opens the web UI in your browser
 ```
 
-Flags: `-smtp :1025`, `-http :8025`, `-db ./emails.db`.
+Then point your app at it. For Laravel:
 
-## Frontend development
+```dotenv
+MAIL_MAILER=smtp
+MAIL_HOST=127.0.0.1
+MAIL_PORT=1025
+MAIL_USERNAME=null
+MAIL_PASSWORD=null
+MAIL_ENCRYPTION=null
+```
+
+| Flag | Env | Default |
+| --- | --- | --- |
+| `-smtp` | `MAILBOX_SMTP` | `:1025` |
+| `-http` | `MAILBOX_HTTP` | `:8025` |
+| `-db` | `MAILBOX_DB` | `mailbox/mailbox.db` in your user cache directory (`~/.cache` on Linux, `~/Library/Caches` on macOS, `%LocalAppData%` on Windows) |
+| `-open` | | Open the web UI on start |
+| `-version` | | Print the version |
+
+## Development
+
+The web UI is built into `web/dist` and embedded in the binary. `web/dist` is
+committed so `go install` works without Node, so rebuild and commit it when the
+frontend changes (CI checks this).
 
 ```bash
-go run .                      # terminal 1: API + SMTP
-cd frontend && npm run dev    # terminal 2: http://localhost:5173 with hot reload
+cd frontend && npm install && npm run build && cd ..   # rebuild the embedded UI
+go run .                                                # terminal 1: API + SMTP
+cd frontend && npm run dev                              # terminal 2: http://localhost:5173 with hot reload
+```
+
+## Releasing
+
+Push a version tag. GitHub Actions builds binaries for every platform with
+GoReleaser, attaches them to a GitHub release, and pushes a multi-arch image to
+`ghcr.io/prabath1998/mailbox`.
+
+```bash
+git tag v0.1.0 && git push origin v0.1.0
 ```
 
 ## API

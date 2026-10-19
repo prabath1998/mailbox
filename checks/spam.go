@@ -8,8 +8,8 @@ import (
 	"strings"
 	"unicode"
 
-	"mailbox/mailparse"
-	"mailbox/storage"
+	"github.com/prabath1998/mailbox/mailparse"
+	"github.com/prabath1998/mailbox/storage"
 )
 
 type SpamRule struct {

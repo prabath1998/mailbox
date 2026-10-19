@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"log"
 	"mime"
 	"net/http"
@@ -12,9 +13,9 @@ import (
 	"strings"
 	"time"
 
-	"mailbox/checks"
-	"mailbox/events"
-	"mailbox/storage"
+	"github.com/prabath1998/mailbox/checks"
+	"github.com/prabath1998/mailbox/events"
+	"github.com/prabath1998/mailbox/storage"
 
 	"github.com/gorilla/mux"
 )
@@ -25,10 +26,12 @@ type Handler struct {
 	Router  *mux.Router
 	// SMTPAddr is shown in the UI so people know where to point their app.
 	SMTPAddr string
+	// Static is the built frontend, served for every non-API path.
+	Static fs.FS
 }
 
-func NewHandler(store *storage.SQLiteStorage, hub *events.Hub, smtpAddr string) *Handler {
-	h := &Handler{Storage: store, Events: hub, Router: mux.NewRouter(), SMTPAddr: smtpAddr}
+func NewHandler(store *storage.SQLiteStorage, hub *events.Hub, smtpAddr string, static fs.FS) *Handler {
+	h := &Handler{Storage: store, Events: hub, Router: mux.NewRouter(), SMTPAddr: smtpAddr, Static: static}
 	h.setupRoutes()
 	return h
 }
@@ -46,7 +49,21 @@ func (h *Handler) setupRoutes() {
 	r.HandleFunc("/messages/{id:[0-9]+}/spam", h.spamCheck).Methods("GET")
 	r.HandleFunc("/messages/{id:[0-9]+}/links", h.linkCheck).Methods("GET")
 	r.HandleFunc("/events", h.streamEvents).Methods("GET")
-	h.Router.PathPrefix("/").Handler(http.FileServer(http.Dir("./web/")))
+	h.Router.PathPrefix("/").Handler(staticHandler(h.Static))
+}
+
+// staticHandler serves the frontend. Vite puts a content hash in every file name
+// under /assets/, so those can be cached forever; index.html must always revalidate.
+func staticHandler(static fs.FS) http.Handler {
+	files := http.FileServer(http.FS(static))
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/assets/") {
+			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+		} else {
+			w.Header().Set("Cache-Control", "no-cache")
+		}
+		files.ServeHTTP(w, r)
+	})
 }
 
 func writeJSON(w http.ResponseWriter, v any) {
@@ -267,9 +284,4 @@ func (h *Handler) streamEvents(w http.ResponseWriter, r *http.Request) {
 			flusher.Flush()
 		}
 	}
-}
-
-func (h *Handler) Start(addr string) error {
-	log.Printf("HTTP server listening on %s", addr)
-	return http.ListenAndServe(addr, h.Router)
 }

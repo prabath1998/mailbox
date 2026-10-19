@@ -1,2 +1,6 @@
 emails.db*
 frontend/node_modules
+
+# Release builds
+/dist/
+/mailbox

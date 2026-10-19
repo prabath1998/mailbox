@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"mailbox/storage"
+	"github.com/prabath1998/mailbox/storage"
 )
 
 type LinkResult struct {

@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"mailbox/storage"
+	"github.com/prabath1998/mailbox/storage"
 
 	"github.com/jhillyerd/enmime"
 )

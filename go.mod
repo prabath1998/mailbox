@@ -1,4 +1,4 @@
-module mailbox
+module github.com/prabath1998/mailbox
 
 go 1.23.0
 

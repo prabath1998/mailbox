@@ -5,8 +5,8 @@ import tailwindcss from "@tailwindcss/vite";
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   build: {
-    // The Go server serves ./web, so build straight into it.
-    outDir: "../web",
+    // Built into web/dist, which is embedded in the Go binary (see web/embed.go).
+    outDir: "../web/dist",
     emptyOutDir: true,
   },
   server: {
